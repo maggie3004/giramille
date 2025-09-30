@@ -1,0 +1,20 @@
+{
+  "classes": [
+    "background",
+    "skin",
+    "hair",
+    "eyes",
+    "outfit",
+    "props",
+    "shadow"
+  ],
+  "palette": {
+    "background": "#222222",
+    "skin": "#f1c27d",
+    "hair": "#3b2f2f",
+    "eyes": "#2c3e50",
+    "outfit": "#3498db",
+    "props": "#9b59b6",
+    "shadow": "#7f8c8d"
+  }
+}
