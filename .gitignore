@@ -238,8 +238,8 @@ __marimo__/
 !logs/**
 
 # Model files are too large for Git - use Git LFS or download separately
-# !models/
-# !models/**
+!models/
+!models/**
 
 !outputs/
 !outputs/**
