@@ -1,0 +1,69 @@
+<<<<<<< HEAD
+﻿# This environment is fully offline-capable and uses permissive-licensed deps only
+name: offline-genvec
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  # Core GPU stack
+  - pytorch>=2.1
+  - torchvision>=0.16
+  - pytorch-cuda=11.8
+  # Via pip
+  - pip:
+    - numpy>=1.24.0
+    - hydra-core>=1.3.2
+    - omegaconf>=2.3.0
+    - typer>=0.12.3
+    - opencv-python>=4.8.0
+    - Pillow>=10.0.0
+    - albumentations>=1.3.1
+    - scikit-image>=0.22.0
+    - scipy>=1.11.3
+    - svgpathtools>=1.6.1
+    - pydiffvg>=0.4.1
+    - skia-python>=87.5
+    - lpips>=0.1.4
+    - Flask>=2.3.3
+    - waitress>=2.1.2
+    - rich>=13.5.2
+    - psutil>=5.9.5
+=======
+﻿# This environment is fully offline-capable and uses permissive-licensed deps only
+name: offline-genvec
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  # Core GPU stack
+  - pytorch>=2.1
+  - torchvision>=0.16
+  - pytorch-cuda=11.8
+  # Via pip
+  - pip:
+    - numpy>=1.24.0
+    - hydra-core>=1.3.2
+    - omegaconf>=2.3.0
+    - typer>=0.12.3
+    - opencv-python>=4.8.0
+    - Pillow>=10.0.0
+    - albumentations>=1.3.1
+    - scikit-image>=0.22.0
+    - scipy>=1.11.3
+    - svgpathtools>=1.6.1
+    - pydiffvg>=0.4.1
+    - skia-python>=87.5
+    - lpips>=0.1.4
+    - Flask>=2.3.3
+    - waitress>=2.1.2
+    - rich>=13.5.2
+    - psutil>=5.9.5
+>>>>>>> 93065687c720c01a1e099ca0338e62bd0fa3ae90

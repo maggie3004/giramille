@@ -1,0 +1,47 @@
+{
+  "model": {
+    "base_model": "runwayml/stable-diffusion-v1-5",
+    "lora_rank": 32,
+    "lora_alpha": 64,
+    "lora_dropout": 0.1,
+    "target_modules": ["to_k", "to_q", "to_v", "to_out.0", "proj_in", "proj_out"]
+  },
+  "training": {
+    "batch_size": 2,
+    "learning_rate": 5e-5,
+    "weight_decay": 1e-3,
+    "epochs": 150,
+    "save_interval": 10,
+    "sample_interval": 5,
+    "gradient_accumulation_steps": 4,
+    "max_grad_norm": 1.0
+  },
+  "data": {
+    "image_size": 512,
+    "max_images_per_category": 1000,
+    "augmentation": {
+      "horizontal_flip": true,
+      "rotation": 15,
+      "color_jitter": {
+        "brightness": 0.2,
+        "contrast": 0.2,
+        "saturation": 0.2
+      }
+    }
+  },
+  "loss_weights": {
+    "style_consistency": 2.0,
+    "category_consistency": 1.0,
+    "multi_view_consistency": 0.5,
+    "perceptual": 1.0
+  },
+  "giramille_style": {
+    "color_palette": ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7"],
+    "artistic_features": {
+      "cartoon_style": true,
+      "bright_colors": true,
+      "rounded_shapes": true,
+      "playful_elements": true
+    }
+  }
+}

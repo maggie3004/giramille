@@ -1,0 +1,21 @@
+2025-09-30 20:42:55,026 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-09-30 20:42:55,026 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-30 20:42:55,029 - werkzeug - INFO -  * Restarting with stat
+2025-09-30 20:43:08,978 - werkzeug - WARNING -  * Debugger is active!
+2025-09-30 20:43:08,986 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-09-30 21:06:08,536 - werkzeug - INFO - 127.0.0.1 - - [30/Sep/2025 21:06:08] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-09-30 21:08:03,341 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\advanced_generator.py', reloading
+2025-09-30 21:08:04,216 - werkzeug - INFO -  * Restarting with stat
+2025-09-30 21:08:20,685 - werkzeug - WARNING -  * Debugger is active!
+2025-09-30 21:08:20,692 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-09-30 21:08:24,281 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\advanced_generator.py', reloading
+2025-09-30 21:08:25,259 - werkzeug - INFO -  * Restarting with stat
+2025-09-30 21:08:42,201 - werkzeug - WARNING -  * Debugger is active!
+2025-09-30 21:08:42,209 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-09-30 21:43:12,086 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\advanced_generator.py', reloading
+2025-09-30 21:43:12,890 - werkzeug - INFO -  * Restarting with stat
+2025-09-30 21:43:27,011 - werkzeug - WARNING -  * Debugger is active!
+2025-09-30 21:43:27,017 - werkzeug - INFO -  * Debugger PIN: 146-465-069
