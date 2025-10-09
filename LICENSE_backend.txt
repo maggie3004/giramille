@@ -1,0 +1,24 @@
+# Backend Dependency License Manifest
+
+All backend and vectorization critical code is based on the following libraries, with their license types as required by contract:
+
+| Library          | Version   | License   |
+|------------------|-----------|-----------|
+| torch            | >=1.10    | BSD/MIT   |
+| torchvision      | >=0.11    | BSD/MIT   |
+| diffusers        | >=0.20    | Apache-2  |
+| transformers     | >=4.30    | Apache-2  |
+| Flask            | >=2.3     | BSD       |
+| Flask-CORS       | >=4.0     | MIT       |
+| numpy            | >=1.24    | BSD       |
+| opencv-python    | >=4.8     | Apache-2  |
+| typer            | >=0.6     | MIT       |
+| Pillow           | >=9.0     | HPND (unrestricted) |
+| tqdm             | >=4.65    | MPL       |
+| svgpathtools     | >=1.6     | MIT       |
+| skia-python      | >=93      | BSD/MIT   |
+| redis            | >=4.0     | MIT       |
+| psutil           | >=7.0     | BSD       |
+
+All code written during this engagement is licensed exclusively to the client as per contract.
+Any new dependencies added for retraining/vectorization here are open-source and MIT/Apache-2/BSD only or otherwise compatible as listed above.

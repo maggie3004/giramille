@@ -25,8 +25,43 @@ except Exception as _optional_import_error:
     # Keep running with lightweight generator
     PRODUCTION_AVAILABLE = False
 
+import base64
+import io
+from PIL import Image
+import numpy as np
+import torch
+from pathlib import Path
+import sys
+
+# Vectorization Model Load (shared in server memory, NOT per call)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_PATH = str(PROJECT_ROOT / "src")
+if SRC_PATH not in sys.path:
+    sys.path.insert(0, SRC_PATH)
+from models.segnet import SmallUNet
+from vector.curve_fit import contours_to_beziers, beziers_to_svg
+from vector.postprocess import reduce_anchors, merge_layers
+
+# Pre-load trained weights at startup
+VEC_MODEL_PATH = Path("smallunet_best.pth")
+vec_model = None
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+num_classes = 16  # Adjust if needed
+if VEC_MODEL_PATH.exists():
+    vec_model = SmallUNet(in_ch=3, num_classes=num_classes).to(device)
+    state = torch.load(str(VEC_MODEL_PATH), map_location=device)
+    if isinstance(state, dict) and "model_state_dict" in state:
+        vec_model.load_state_dict(state["model_state_dict"], strict=False)
+    else:
+        vec_model.load_state_dict(state, strict=False)
+    vec_model.eval()
+    print(f"[INFO] Vectorization model loaded from {VEC_MODEL_PATH}")
+else:
+    print("[ERROR] No vectorization weights found. /api/vectorize will fail.")
+
 app = Flask(__name__)
-CORS(app)
+# Setup CORS for API routes only
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -91,37 +126,45 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-def load_giramille_model():
-    global model
-    try:
-        model = GiramilleStyleEncoder(num_classes=4)
-        checkpoint_path = 'models/giramille_best_epoch_31_acc_74.1.pth'
-        if os.path.exists(checkpoint_path):
-            try:
-                checkpoint = torch.load(checkpoint_path, map_location=device)
-                model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-                model.eval()
-                model.to(device)
-                print(f"✅ Giramille model loaded successfully! Accuracy: {checkpoint.get('accuracy', 'Unknown')}")
-            except Exception as load_error:
-                print(f"⚠️ Model architecture mismatch, using random weights: {load_error}")
-                model.eval()
-                model.to(device)
-        else:
-            print("⚠️ No trained model found, using random weights")
-            model.eval()
-            model.to(device)
-        return True
-    except Exception as e:
-        print(f"❌ Error loading model: {e}")
-        # Create a simple fallback model
-        model = GiramilleStyleEncoder(num_classes=4)
-        model.eval()
-        model.to(device)
-        return True
+# DEPRECATED: Old GiramilleStyleEncoder loader block (not used by production system)
+# def load_giramille_model():
+#     global model
+#     try:
+#         model = GiramilleStyleEncoder(num_classes=4)
+#         checkpoint_path = 'models/giramille_best_epoch_31_acc_74.1.pth'
+#         if os.path.exists(checkpoint_path):
+#             try:
+#                 checkpoint = torch.load(checkpoint_path, map_location=device)
+#                 model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+#                 model.eval()
+#                 model.to(device)
+#                 print(f"[SUCCESS] Giramille model loaded successfully! Accuracy: {checkpoint.get('accuracy', 'Unknown')}")
+#             except Exception as load_error:
+#                 print(f"[WARNING] Model architecture mismatch, using random weights: {load_error}")
+#                 model.eval()
+#                 model.to(device)
+#         else:
+#             print("[WARNING] No trained model found, using random weights")
+#             model.eval()
+#             model.to(device)
+#         return True
+#     except Exception as e:
+#         print(f"[ERROR] Error loading model: {e}")
+#         # Create a simple fallback model
+#         model = GiramilleStyleEncoder(num_classes=4)
+#         model.eval()
+#         model.to(device)
+#         return True
 
-# Load model on startup
-load_giramille_model()
+# Initialize production system at startup for faster first generation
+if PRODUCTION_AVAILABLE:
+    try:
+        print("[INFO] Initializing production system at startup...")
+        initialize_production_system()
+        print("[SUCCESS] Production system initialized successfully!")
+    except Exception as e:
+        print(f"[WARNING] Failed to initialize production system at startup: {e}")
+        print("[INFO] Production system will be initialized on first request (slower)")
 
 @app.route('/api/scene/create', methods=['POST'])
 def create_scene():
@@ -390,48 +433,60 @@ def render_scene_to_svg(scene: Dict) -> str:
 
 @app.route('/api/generate', methods=['POST'])
 def generate_image():
-    """Generate Giramille style image from prompt"""
+    """Generate Giramille style image from prompt using ONLY production (Stable Diffusion/LoRA) generator."""
     try:
         data = request.get_json()
         prompt = data.get('prompt', '')
         style = data.get('style', 'png')  # png or vector
-        
         if not prompt:
+            print("[ERROR] No prompt provided to /api/generate.")
             return jsonify({'error': 'No prompt provided'}), 400
-        
-        # Prefer production system if available, otherwise fallback to local generator
-        generated_image = None
-        if PRODUCTION_AVAILABLE:
-            try:
-                quality = data.get('quality', 'balanced')  # fast, balanced, high
-                result = generate_production_image(prompt, style, quality)
-                if result.get('success'):
-                    import io
-                    generated_image = Image.open(io.BytesIO(result['image']))
-                else:
-                    # Fall back if production failed
-                    generated_image = generate_giramille_image(prompt, style)
-            except Exception:
-                generated_image = generate_giramille_image(prompt, style)
-        else:
-            generated_image = generate_giramille_image(prompt, style)
-        
+        # Enforce ONLY production generator
+        if not PRODUCTION_AVAILABLE:
+            print("[ERROR] Production generator not available. Image generation refused.")
+            return jsonify({
+                'success': False,
+                'error': 'Production (Stable Diffusion/LoRA) generator is not available. Please install required dependencies and a valid model.',
+                'generator_status': 'not_available'
+            }), 500
+        try:
+            quality = data.get('quality', 'balanced')  # fast, balanced, high
+            print(f"[INFO] -- Using PRODUCTION generator for prompt: '{prompt}' | Quality: {quality}")
+            result = generate_production_image(prompt, style, quality)
+            if result.get('success'):
+                import io
+                generated_image = Image.open(io.BytesIO(result['image']))
+                print("[SUCCESS] Production image generated.")
+            else:
+                print(f"[ERROR] Production model failed: {result.get('error')}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Production model failed: ' + str(result.get('error')),
+                    'generator_status': 'production_error'
+                }), 500
+        except Exception as e:
+            print(f"[ERROR] Production model error: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': f'Production model error: {str(e)}',
+                'generator_status': 'production_exception'
+            }), 500
         # Convert to base64
         buffer = io.BytesIO()
         generated_image.save(buffer, format='PNG')
         buffer.seek(0)
         generated_b64 = base64.b64encode(buffer.getvalue()).decode()
-        
         return jsonify({
             'success': True,
             'image': f"data:image/png;base64,{generated_b64}",
             'prompt': prompt,
             'style': style,
-            'generated_at': datetime.now().isoformat()
+            'generated_at': datetime.now().isoformat(),
+            'generator_status': 'production'
         })
-        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[ERROR] Exception in /api/generate: {str(e)}")
+        return jsonify({'error': str(e), 'generator_status': 'exception'}), 500
 
 def generate_giramille_image(prompt: str, style: str) -> Image.Image:
     """Generate Giramille style image from prompt"""
@@ -629,6 +684,45 @@ def production_metrics():
         return jsonify(metrics)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/vectorize', methods=['POST'])
+def vectorize_api():
+    """Vectorize input image to SVG using the in-memory SmallUNet pipeline."""
+    if vec_model is None:
+        return {"error": "No vectorization model loaded on backend!"}, 500
+    file = None
+    if 'file' in request.files:
+        file = request.files['file']
+    elif request.is_json:
+        data = request.get_json()
+        if 'image' in data:  # expects base64 string
+            b64 = data['image'].split(',')[-1]
+            file = io.BytesIO(base64.b64decode(b64))
+    if file is None:
+        return {"error": "No image provided (upload PNG/JPG as file or base64)."}, 400
+    try:
+        img = Image.open(file).convert('RGB').resize((256, 256))
+        arr = np.array(img)
+        x = torch.from_numpy(arr[:, :, ::-1]).float().permute(2, 0, 1) / 255.0
+        x = x.unsqueeze(0).to(device)
+        with torch.no_grad():
+            logits = vec_model(x)
+            mask = logits.argmax(dim=1)[0].byte().cpu().numpy()
+        layer_paths = []
+        for cls in range(num_classes):
+            cls_mask = (mask == cls).astype(np.uint8) * 255
+            if cls_mask.sum() < 10:
+                continue
+            paths = contours_to_beziers(cls_mask, epsilon=1.5, max_segments=8)
+            paths = reduce_anchors(paths, max_anchors=300)
+            layer_paths.append(paths)
+        merged = merge_layers(layer_paths, max_layers=20)
+        svg_bytes = io.BytesIO()
+        beziers_to_svg(merged, svg_bytes, size=(256, 256))
+        svg_bytes.seek(0)
+        return send_file(svg_bytes, mimetype="image/svg+xml", as_attachment=True, download_name="vectorized.svg")
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

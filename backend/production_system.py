@@ -187,7 +187,11 @@ class ProductionGiramilleGenerator:
             self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
             self.pipe = self.pipe.to(self.device)
             self.pipe.enable_attention_slicing()
-            self.pipe.enable_memory_efficient_attention()
+            # Memory efficient attention may not be available in all diffusers versions
+            try:
+                self.pipe.enable_memory_efficient_attention()
+            except AttributeError:
+                logger.info("Memory efficient attention not available, using standard attention")
             
             logger.info("[SUCCESS] Production model loaded successfully!")
             

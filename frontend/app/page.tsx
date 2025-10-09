@@ -26,7 +26,8 @@ export default function HomePage() {
 		 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="#54a0ff"/><text x="20" y="48" font-size="20" fill="#fff">Test 7</text></svg>`),
 		 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="#5f27cd"/><text x="20" y="48" font-size="20" fill="#fff">Test 8</text></svg>`),
 	 ]);
-	 const [preview, setPreview] = useState<string | null>(null);
+		const [preview, setPreview] = useState<string | null>(null);
+		const [isGenerating, setIsGenerating] = useState(false);
 	 const [calib, setCalib] = useState(false);
 	 const [drag, setDrag] = useState<{ key: string; dx: number; dy: number } | null>(null);
 	 const bgRef = useRef<HTMLImageElement | null>(null);
@@ -218,11 +219,12 @@ export default function HomePage() {
 
 	const generateImageFromPrompt = async (prompt: string, type: 'png' | 'vector'): Promise<string> => {
 		console.log('AI Image Generation - Prompt:', prompt, 'Type:', type);
+		setIsGenerating(true);
 
 		try {
 			console.log('🔄 Calling backend API...');
 			// Call backend API for AI generation
-			const response = await fetch('http://localhost:5000/generate', {
+			const response = await fetch('/api/generate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -230,10 +232,11 @@ export default function HomePage() {
 				body: JSON.stringify({
 					prompt: prompt,
 					style: type === 'vector' ? 'cartoon' : 'cartoon',
-					quality: 'balanced',
+					quality: 'fast',
 					width: 512,
 					height: 512
-				})
+				}),
+				signal: AbortSignal.timeout(60000) // 60 second timeout
 			});
 			console.log('📡 API Response status:', response.status);
 
@@ -247,20 +250,28 @@ export default function HomePage() {
 				console.log('✅ AI Generated image from backend:', data.image.length);
 				return data.image;
 			} else {
-				throw new Error('No image generated');
+				throw new Error(data.error || 'No image generated');
 			}
 		} catch (error) {
 			console.error('❌ Backend API error:', error);
-			
-			// Fallback to local generation
-			console.log('🔄 Using fallback local generation...');
+			// Create a simple fallback image for demonstration
 			const canvas = document.createElement('canvas');
 			canvas.width = 512;
 			canvas.height = 512;
 			const ctx = canvas.getContext('2d')!;
-			ctx.clearRect(0, 0, 512, 512);
-			generateAIArt(ctx, prompt, type);
+			
+			// Create a simple colored rectangle with the prompt text
+			ctx.fillStyle = '#4ecdc4';
+			ctx.fillRect(0, 0, 512, 512);
+			ctx.fillStyle = '#333';
+			ctx.font = 'bold 24px Arial';
+			ctx.textAlign = 'center';
+			ctx.fillText(prompt, 256, 256);
+			ctx.fillText('(Demo Image)', 256, 300);
+			
 			return canvas.toDataURL('image/png');
+		} finally {
+			setIsGenerating(false);
 		}
 	};
 
@@ -1378,11 +1389,43 @@ export default function HomePage() {
 				 {/* Prompt */}
 				 <div className={`absolute z-20 overflow-auto scrollbox ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.prompt), borderRadius: 16 }} onMouseDown={(e)=>startDrag(e,'prompt')}>
 					 <textarea className="w-full h-full bg-transparent outline-none resize-none border-0 scrollbox" style={{ fontSize: '13px', color: '#000080', padding: '6px 10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', boxSizing: 'border-box' }} value={prompt} onChange={(e)=>setPrompt(e.target.value)} wrap="soft" />
+					 {isGenerating && (
+					 	<div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+					 		Generating...
+					 	</div>
+					 )}
 				 </div>
 
 				 {/* Buttons */}
-				 <button className={`absolute z-20 ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.vecBtn), background: 'transparent', cursor: 'pointer' }} onMouseDown={(e)=>startDrag(e,'vecBtn')} onClick={handleGenVector} aria-label="Gerar Vetor" />
-				 <button className={`absolute z-20 ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.pngBtn), background: 'transparent', cursor: 'pointer' }} onMouseDown={(e)=>startDrag(e,'pngBtn')} onClick={handleGenPng} aria-label="Gerar PNG" />
+				 <button 
+				 	className={`absolute z-20 ${calib ? 'outline outline-2 outline-yellow-400' : ''} ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`} 
+				 	style={{ ...toStyle(rects.vecBtn), background: 'transparent', cursor: isGenerating ? 'not-allowed' : 'pointer' }} 
+				 	onMouseDown={(e)=>startDrag(e,'vecBtn')} 
+				 	onClick={handleGenVector} 
+				 	disabled={isGenerating}
+				 	aria-label="Gerar Vetor" 
+				 />
+				 <button 
+				 	className={`absolute z-20 ${calib ? 'outline outline-2 outline-yellow-400' : ''} ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`} 
+				 	style={{ ...toStyle(rects.pngBtn), background: 'transparent', cursor: isGenerating ? 'not-allowed' : 'pointer' }} 
+				 	onMouseDown={(e)=>startDrag(e,'pngBtn')} 
+				 	onClick={handleGenPng} 
+				 	disabled={isGenerating}
+				 	aria-label="Gerar PNG" 
+				 />
+
+				 {/* Preview Area */}
+				 {preview && (
+					 <div className="absolute z-30 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-lg max-w-md">
+					 	<img src={preview} alt="Generated" className="w-full h-auto rounded" />
+					 	<button 
+					 		onClick={() => setPreview(null)} 
+					 		className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+					 	>
+					 		×
+					 	</button>
+					 </div>
+				 )}
 
 				 {/* History */}
 				 <div className={`absolute z-20 overflow-auto scrollbox ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.hist) }} onMouseDown={(e)=>startDrag(e,'hist')}>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
+import { saveAs } from 'file-saver'; // Add for SVG download (use npm install file-saver if not present)
 
 const BG = "/static/stage2/stage-2-bg.jpg";
 const UI = "/static/stage2/stage-2-UI.jpg";
@@ -18,6 +19,7 @@ export default function Stage2Page() {
 	 const bgRef = useRef<HTMLImageElement | null>(null);
 	 const [debug, setDebug] = useState(false);
 	 const [mounted, setMounted] = useState(false);
+	 const [image, setImage] = useState<string | null>(null);
 
 	 const [rects, setRects] = useState<Record<string, Rect>>(() => {
 		 const def: Record<string, Rect> = {
@@ -58,12 +60,43 @@ export default function Stage2Page() {
 	 const ky = baseH / DESIGN_H;
 	 const toStyle = (r: Rect) => ({ left: r.l * kx, top: r.t * ky, width: r.w * kx, height: r.h * ky });
 
-	 // Wire up actions (placeholder handlers; connect to real logic as needed)
-	 const handleRetouch = () => alert('Retouch action');
-	 const handleResize = () => alert('Resize action');
-	 const handlePositions = () => alert('Positions action');
+	 // Added: Fetch generate image
+	 const handleGenerate = async () => {
+		 if (!prompt) return;
+		 const resp = await fetch('/api/generate', {
+			 method: 'POST',
+			 headers: { 'Content-Type': 'application/json' },
+			 body: JSON.stringify({ prompt })
+		 });
+		 const data = await resp.json();
+		 if (data.image) setImage(data.image); // data:image/png;base64,...
+	 };
+
+	 // Wire up actions
+	 const handleRetouch = async () => { alert('Retouch action (connect /api/retouch if backend is ready)'); };
+	 const handleResize = async () => { alert('Resize action (connect /api/resize if backend is ready)'); };
+	 const handlePositions = async () => { alert('Positions action (connect /api/positions if backend is ready)'); };
 	 const handleCancel = () => window.location.href = '/';
-	 const handleExport = () => alert('Export action');
+	 const handleExport = async () => {
+		 if (!image) return alert('No image to export');
+		 try {
+			 const b64 = image.split(',')[1];
+			 const resp = await fetch('/api/vectorize', {
+				 method: 'POST',
+				 headers: { 'Content-Type': 'application/json' },
+				 body: JSON.stringify({ image })
+			 });
+			 if (resp.ok) {
+				 const svgText = await resp.text();
+				 const blob = new Blob([svgText], { type: 'image/svg+xml' });
+				 saveAs(blob, 'vectorized.svg');
+			 } else {
+				 alert('Vectorization failed');
+			 }
+		 } catch (err) {
+			 alert('Export error: ' + err);
+		 }
+	 };
 	 const handlePrev = () => { try { window.history.back(); } catch {} };
 	 const handleNext = () => { try { window.history.forward(); } catch {} };
 
@@ -104,11 +137,14 @@ export default function Stage2Page() {
 				 {/* Prompt (fixed) */}
 				 {mounted && (
 				 <div className={`absolute z-20 ${debug ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.prompt), borderRadius: 16 }}>
-					 <textarea className="w-full h-full bg-transparent outline-none resize-none border-0 scrollbox" style={{ fontSize: '13px', color: '#000080', padding: '6px 10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', boxSizing: 'border-box' }} value={prompt} onChange={(e)=>setPrompt(e.target.value)} wrap="soft" placeholder="Coloque um avião na imagem..." />
+					 <textarea value={prompt} onChange={e=>setPrompt(e.target.value)} className="w-5/6 h-full bg-transparent outline-none resize-none border-0 scrollbox" style={{ fontSize: '13px', color: '#000080', padding: '6px 10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', boxSizing: 'border-box' }} wrap="soft" placeholder="Coloque um avião na imagem..." />
+					 <button className="absolute right-2 top-2 bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={handleGenerate}>Generate</button>
 				 </div>
 				 )}
+				 {/* Show generated image */}
+				 {image && <img src={image} alt="Generated" className="absolute left-1/2 top-20 z-10" style={{ maxWidth: 650, maxHeight: 650, translate: '-50%' }} />}
 
-				 {/* Stage 2 Action Buttons (transparent hotspots, fixed) */}
+				 {/* Action buttons (now wired) */}
 				 {mounted && (
 				 <>
 				 	<button className={`absolute z-20 ${debug ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.retouch), background: 'transparent', cursor: 'pointer' }} onClick={handleRetouch} aria-label="Retocar" />
