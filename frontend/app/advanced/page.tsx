@@ -8,6 +8,9 @@ export default function AdvancedPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [generatePrompt, setGeneratePrompt] = useState('');
+  const [generateStyle, setGenerateStyle] = useState('giramille');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   // Mode-specific handlers
   const handleModeChange = (mode: 'generate' | 'edit' | 'multi-view' | 'vector') => {
@@ -18,31 +21,38 @@ export default function AdvancedPage() {
     setIsGenerating(true);
     
     try {
-      // Simulate AI generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('🔄 Calling backend API for advanced generation...');
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          style: style,
+          quality: 'high',
+          width: 512,
+          height: 512
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      // Generate sample image
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d')!;
-      
-      // Create AI-generated image based on prompt
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 512, 512);
-      
-      // Add prompt-based content
-      ctx.fillStyle = '#333';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(prompt, 256, 256);
-      
-      const imageData = canvas.toDataURL('image/png');
-      setGeneratedImages(prev => [imageData, ...prev]);
-      setSelectedImage(imageData);
+      if (data.success && data.image) {
+        console.log('✅ AI Generated image from backend:', data.image.length);
+        setGeneratedImages(prev => [data.image, ...prev]);
+        setSelectedImage(data.image);
+      } else {
+        throw new Error(data.error || 'No image generated');
+      }
       
     } catch (error) {
       console.error('Generation error:', error);
+      alert('Error generating image: ' + (error as Error).message);
     } finally {
       setIsGenerating(false);
     }
@@ -52,35 +62,35 @@ export default function AdvancedPage() {
     setIsGenerating(true);
     
     try {
-      // Simulate multi-view generation
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Generate different views
-      const views = ['front', '3/4_left', 'side', 'back'];
-      const viewImages = [];
-      
-      for (const view of views) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 512;
-        const ctx = canvas.getContext('2d')!;
-        
-        // Create view-specific image
-        ctx.fillStyle = '#e0e0e0';
-        ctx.fillRect(0, 0, 512, 512);
-        
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${view} view`, 256, 256);
-        
-        viewImages.push(canvas.toDataURL('image/png'));
+      console.log('🔄 Calling backend API for multi-view generation...');
+      const response = await fetch('/api/multiview/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imagePath,
+          views: ['front', '3/4_left', 'side', 'back'],
+          quality: 'high'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       
-      setGeneratedImages(prev => [...viewImages, ...prev]);
+      if (data.success && data.views) {
+        console.log('✅ Multi-view generated from backend:', data.views.length, 'views');
+        setGeneratedImages(prev => [...data.views, ...prev]);
+      } else {
+        throw new Error(data.error || 'Multi-view generation failed');
+      }
       
     } catch (error) {
       console.error('Multi-view generation error:', error);
+      alert('Error generating multi-view: ' + (error as Error).message);
     } finally {
       setIsGenerating(false);
     }
@@ -90,38 +100,32 @@ export default function AdvancedPage() {
     setIsGenerating(true);
     
     try {
-      // Simulate vector conversion
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('🔄 Calling backend API for vector conversion...');
+      const response = await fetch('/api/vectorize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: imagePath
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // For SVG response, convert to data URL for preview
+      const svgContent = await response.text();
+      const vectorDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
       
-      // Generate vector preview
-      const canvas = document.createElement('canvas');
-      canvas.width = 512;
-      canvas.height = 512;
-      const ctx = canvas.getContext('2d')!;
-      
-      // Create vector-style image
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 512, 512);
-      
-      // Draw vector-style shapes
-      ctx.fillStyle = '#4ecdc4';
-      ctx.fillRect(100, 100, 200, 150);
-      
-      ctx.fillStyle = '#ff6b6b';
-      ctx.beginPath();
-      ctx.arc(300, 200, 50, 0, 2 * Math.PI);
-      ctx.fill();
-      
-      ctx.fillStyle = '#333';
-      ctx.font = 'bold 18px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Vector Converted', 256, 400);
-      
-      const vectorImage = canvas.toDataURL('image/png');
-      setGeneratedImages(prev => [vectorImage, ...prev]);
+      console.log('✅ Vector conversion completed');
+      setGeneratedImages(prev => [vectorDataUrl, ...prev]);
+      setSelectedImage(vectorDataUrl);
       
     } catch (error) {
       console.error('Vector conversion error:', error);
+      alert('Error converting to vector: ' + (error as Error).message);
     } finally {
       setIsGenerating(false);
     }
@@ -195,12 +199,18 @@ export default function AdvancedPage() {
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     rows={4}
                     placeholder="Describe the image you want to generate..."
+                    value={generatePrompt}
+                    onChange={(e) => setGeneratePrompt(e.target.value)}
                   />
                   
                   <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">
                     Style
                   </label>
-                  <select className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <select 
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    value={generateStyle}
+                    onChange={(e) => setGenerateStyle(e.target.value)}
+                  >
                     <option value="giramille">Giramille Style</option>
                     <option value="realistic">Realistic</option>
                     <option value="cartoon">Cartoon</option>
@@ -208,8 +218,8 @@ export default function AdvancedPage() {
                   </select>
                   
                   <button
-                    onClick={() => handleGenerateImage('sample prompt', 'giramille')}
-                    disabled={isGenerating}
+                    onClick={() => handleGenerateImage(generatePrompt, generateStyle)}
+                    disabled={isGenerating || !generatePrompt.trim()}
                     className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                   >
                     {isGenerating ? 'Generating...' : 'Generate Image'}
@@ -268,11 +278,12 @@ export default function AdvancedPage() {
                     type="file"
                     accept="image/*"
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
                   />
                   
                   <button
-                    onClick={() => handleMultiViewGeneration('sample')}
-                    disabled={isGenerating}
+                    onClick={() => uploadedFile && handleMultiViewGeneration(URL.createObjectURL(uploadedFile))}
+                    disabled={isGenerating || !uploadedFile}
                     className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50"
                   >
                     {isGenerating ? 'Generating Views...' : 'Generate Multi-View'}
@@ -318,6 +329,7 @@ export default function AdvancedPage() {
                     type="file"
                     accept="image/png,image/jpeg"
                     className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
                   />
                   
                   <div className="mt-4 space-y-2">
@@ -341,8 +353,8 @@ export default function AdvancedPage() {
                   </div>
                   
                   <button
-                    onClick={() => handleVectorConversion('sample')}
-                    disabled={isGenerating}
+                    onClick={() => uploadedFile && handleVectorConversion(URL.createObjectURL(uploadedFile))}
+                    disabled={isGenerating || !uploadedFile}
                     className="mt-4 w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 disabled:opacity-50"
                   >
                     {isGenerating ? 'Converting...' : 'Convert to Vector'}

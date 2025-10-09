@@ -240,7 +240,8 @@ export default function AdvancedSceneEditor() {
         drawTree(ctx);
         break;
       default:
-        drawGenericShape(ctx);
+        // If the object type is not recognized, do nothing for now.
+        break;
     }
     
     ctx.restore();
@@ -293,7 +294,7 @@ export default function AdvancedSceneEditor() {
     ctx.fillRect(-5, -20, 10, 40);
     
     // Leaves
-    ctx.fillStyle = obj.style.fillColor;
+    ctx.fillStyle = '#228B22'; // Default green color for leaves
     ctx.beginPath();
     ctx.arc(0, -30, 25, 0, 2 * Math.PI);
     ctx.fill();

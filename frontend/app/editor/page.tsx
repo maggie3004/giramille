@@ -61,31 +61,53 @@ export default function AdvancedEditor() {
   }, []);
 
   // Asset Operations
-  const handleAssetUpload = useCallback((file: File, type: 'image' | 'vector') => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const src = e.target?.result as string;
-      const newNode: Omit<SceneNode, 'id'> = {
-        type: type === 'image' ? 'image' : 'vector',
-        name: file.name,
-        visible: true,
-        locked: false,
-        opacity: 100,
-        transform: {
-          x: Math.random() * (canvasSize.width - 100),
-          y: Math.random() * (canvasSize.height - 100),
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0
-        },
-        content: {
-          src: type === 'image' ? src : undefined,
-          svg: type === 'vector' ? src : undefined
-        }
-      };
-      handleNodeAdd(null, newNode);
-    };
-    reader.readAsDataURL(file);
+  const handleAssetUpload = useCallback(async (file: File, type: 'image' | 'vector') => {
+    try {
+      console.log('🔄 Uploading asset to backend...');
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.asset) {
+        const newNode: Omit<SceneNode, 'id'> = {
+          type: type === 'image' ? 'image' : 'vector',
+          name: file.name,
+          visible: true,
+          locked: false,
+          opacity: 100,
+          transform: {
+            x: Math.random() * (canvasSize.width - 100),
+            y: Math.random() * (canvasSize.height - 100),
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0
+          },
+          content: {
+            src: data.asset.url,
+            svg: type === 'vector' ? data.asset.url : undefined
+          }
+        };
+        handleNodeAdd(null, newNode);
+        console.log('✅ Asset uploaded successfully');
+      } else {
+        throw new Error(data.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Asset upload error:', error);
+      alert('Error uploading asset: ' + (error as Error).message);
+    }
   }, [canvasSize, handleNodeAdd]);
 
   const handleAssetInsert = useCallback((assetId: string, position: { x: number; y: number }) => {
@@ -94,25 +116,55 @@ export default function AdvancedEditor() {
   }, []);
 
   // Multi-view Operations
-  const handleViewGenerated = useCallback((view: string, angle: string) => {
-    const newNode: Omit<SceneNode, 'id'> = {
-      type: 'image',
-      name: `Generated ${angle} view`,
-      visible: true,
-      locked: false,
-      opacity: 100,
-      transform: {
-        x: Math.random() * (canvasSize.width - 100),
-        y: Math.random() * (canvasSize.height - 100),
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0
-      },
-      content: {
-        src: view
+  const handleViewGenerated = useCallback(async (sourceImage: string, angle: string) => {
+    try {
+      console.log('🔄 Generating multi-view from backend...');
+      
+      const response = await fetch('/api/multiview/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: sourceImage,
+          angle: angle,
+          quality: 'high'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Multi-view generation failed: ${response.status}`);
       }
-    };
-    handleNodeAdd(null, newNode);
+
+      const data = await response.json();
+      
+      if (data.success && data.view) {
+        const newNode: Omit<SceneNode, 'id'> = {
+          type: 'image',
+          name: `Generated ${angle} view`,
+          visible: true,
+          locked: false,
+          opacity: 100,
+          transform: {
+            x: Math.random() * (canvasSize.width - 100),
+            y: Math.random() * (canvasSize.height - 100),
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0
+          },
+          content: {
+            src: data.view
+          }
+        };
+        handleNodeAdd(null, newNode);
+        console.log('✅ Multi-view generated successfully');
+      } else {
+        throw new Error(data.error || 'Multi-view generation failed');
+      }
+    } catch (error) {
+      console.error('❌ Multi-view generation error:', error);
+      alert('Error generating multi-view: ' + (error as Error).message);
+    }
   }, [canvasSize, handleNodeAdd]);
 
   // Canvas Operations
@@ -154,6 +206,47 @@ export default function AdvancedEditor() {
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
+  // Scene Export Operations
+  const handleExportScene = useCallback(async () => {
+    try {
+      console.log('🔄 Exporting scene to backend...');
+      
+      const sceneData = {
+        nodes: nodes,
+        canvasSize: canvasSize,
+        timestamp: new Date().toISOString()
+      };
+      
+      const response = await fetch('/api/export/scene', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sceneData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Scene export failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.export) {
+        // Download the exported file
+        const link = document.createElement('a');
+        link.href = data.export.url;
+        link.download = data.export.filename || 'scene-export.zip';
+        link.click();
+        console.log('✅ Scene exported successfully');
+      } else {
+        throw new Error(data.error || 'Scene export failed');
+      }
+    } catch (error) {
+      console.error('❌ Scene export error:', error);
+      alert('Error exporting scene: ' + (error as Error).message);
+    }
+  }, [nodes, canvasSize]);
+
   return (
     <div className="h-screen flex flex-col bg-gray-100">
       {/* Header */}
@@ -177,6 +270,13 @@ export default function AdvancedEditor() {
                 className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
               />
             </div>
+            <button
+              onClick={handleExportScene}
+              disabled={nodes.length === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+            >
+              Export Scene
+            </button>
             <button
               onClick={() => window.location.href = '/'}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"

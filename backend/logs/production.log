@@ -19,3 +19,135 @@
 2025-09-30 21:43:12,890 - werkzeug - INFO -  * Restarting with stat
 2025-09-30 21:43:27,011 - werkzeug - WARNING -  * Debugger is active!
 2025-09-30 21:43:27,017 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 00:44:45,173 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 00:44:45,175 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-10 00:44:45,184 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 00:46:07,014 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 00:46:07,033 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 00:46:22,366 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mGET / HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,380 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,399 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,418 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,431 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,553 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,611 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,752 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,794 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:22,954 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 00:46:23,796 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:46:23] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-10-10 00:54:48,925 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 00:54:48,927 - production_system - INFO - Loading production model...
+2025-10-10 00:54:48,928 - production_system - INFO - Loading base model...
+2025-10-10 00:54:51,149 - production_system - ERROR - [ERROR] Error loading model: 'StableDiffusionPipeline' object has no attribute 'enable_memory_efficient_attention'
+2025-10-10 00:54:51,167 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 00:54:51] "[35m[1mPOST /api/generate HTTP/1.1[0m" 500 -
+2025-10-10 00:55:58,991 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\production_system.py', reloading
+2025-10-10 00:56:00,574 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 00:56:23,307 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 00:56:23,329 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 01:07:02,185 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 01:07:02,186 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-10 01:07:02,191 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 01:07:24,278 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 01:07:24,284 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 01:07:55,452 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 01:07:55,453 - production_system - INFO - Loading production model...
+2025-10-10 01:07:55,453 - production_system - INFO - Loading base model...
+2025-10-10 01:07:57,793 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 01:07:57,793 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 01:07:57,793 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 01:07:57,794 - production_system - INFO - Generating new image for prompt: red horse...
+2025-10-10 01:14:10,704 - production_system - INFO - Generating new image for prompt: red horse...
+2025-10-10 01:17:49,433 - production_system - ERROR - [ERROR] Error generating image: index 36 is out of bounds for dimension 0 with size 36
+2025-10-10 01:17:49,439 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:17:49] "[35m[1mPOST /api/generate HTTP/1.1[0m" 500 -
+2025-10-10 01:18:02,966 - production_system - ERROR - [ERROR] Error generating image: index 36 is out of bounds for dimension 0 with size 36
+2025-10-10 01:18:02,966 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:18:02] "[35m[1mPOST /api/generate HTTP/1.1[0m" 500 -
+2025-10-10 01:19:24,323 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:19:24] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:19:25,674 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:19:25] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:19:26,979 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:19:26] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:19:27,617 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:19:27] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:19:28,772 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:19:28] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:26:09,364 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:26:09] "[33mGET / HTTP/1.1[0m" 404 -
+2025-10-10 01:26:11,455 - production_system - INFO - Generating new image for prompt: cat...
+2025-10-10 01:29:02,511 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:29:02] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:29:04,634 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:29:04] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:33:02,221 - production_system - INFO - [SUCCESS] Generated image in 410.77s
+2025-10-10 01:33:02,313 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:33:02] "POST /api/generate HTTP/1.1" 200 -
+2025-10-10 01:48:24,940 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 01:48:24,941 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-10 01:48:24,945 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 01:48:42,678 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 01:48:42,694 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 01:53:58,646 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\app.py', reloading
+2025-10-10 01:53:59,967 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 01:54:02,575 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\app.py', reloading
+2025-10-10 01:54:05,809 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 01:54:20,360 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 01:54:20,362 - production_system - INFO - Loading production model...
+2025-10-10 01:54:20,362 - production_system - INFO - Loading base model...
+2025-10-10 01:54:23,093 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 01:54:23,094 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 01:54:23,095 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 01:54:23,165 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 01:54:23,180 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 01:57:27,766 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 01:57:27,767 - production_system - INFO - Loading production model...
+2025-10-10 01:57:27,767 - production_system - INFO - Loading base model...
+2025-10-10 01:57:29,114 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 01:57:29,115 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 01:57:29,115 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 01:57:29,155 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 01:57:29,156 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-10 01:57:29,159 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 01:57:44,086 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 01:57:44,087 - production_system - INFO - Loading production model...
+2025-10-10 01:57:44,087 - production_system - INFO - Loading base model...
+2025-10-10 01:57:46,436 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 01:57:46,437 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 01:57:46,437 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 01:57:46,468 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 01:57:46,478 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 01:58:11,773 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:58:11] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:58:13,154 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:58:13] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 01:58:39,850 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 01:58:39] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:04:27,554 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:04:27] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:09:36,610 - werkzeug - INFO -  * Detected change in 'D:\\Giramille\\Giramille-Clean\\backend\\app.py', reloading
+2025-10-10 02:09:37,670 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 02:11:18,407 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 02:11:18,408 - production_system - INFO - Loading production model...
+2025-10-10 02:11:18,409 - production_system - INFO - Loading base model...
+2025-10-10 02:11:19,857 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 02:11:19,858 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 02:11:19,858 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 02:11:19,889 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 02:11:19,890 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-10 02:11:19,894 - werkzeug - INFO -  * Restarting with stat
+2025-10-10 02:11:35,382 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 02:11:35,384 - production_system - INFO - Loading production model...
+2025-10-10 02:11:35,384 - production_system - INFO - Loading base model...
+2025-10-10 02:11:37,186 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 02:11:37,186 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 02:11:37,187 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 02:11:37,221 - werkzeug - WARNING -  * Debugger is active!
+2025-10-10 02:11:37,229 - werkzeug - INFO -  * Debugger PIN: 146-465-069
+2025-10-10 02:11:41,309 - werkzeug - INFO - 10.39.199.157 - - [10/Oct/2025 02:11:41] "[33mGET / HTTP/1.1[0m" 404 -
+2025-10-10 02:11:41,426 - werkzeug - INFO - 10.39.199.157 - - [10/Oct/2025 02:11:41] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-10-10 02:12:19,338 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:19] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:12:21,157 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:21] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:12:22,335 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:12:22,600 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 02:12:22,756 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
