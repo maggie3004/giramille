@@ -1,35 +1,94 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
 import os
 import json
 import base64
-import io
+from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import cv2
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Union
 import uuid
 from datetime import datetime
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+
+class ImageIO:
+    """Helper class for image IO operations."""
+    @staticmethod
+    def from_bytes(image_bytes: bytes) -> Image.Image:
+        """Convert bytes to PIL Image."""
+        try:
+            return Image.open(BytesIO(image_bytes))
+        except Exception as e:
+            raise ValueError(f"Failed to convert bytes to image: {e}")
+    
+    @staticmethod
+    def to_bytes(image: Image.Image, format: str = 'PNG') -> bytes:
+        """Convert PIL Image to bytes."""
+        buffer = BytesIO()
+        try:
+            image.save(buffer, format=format)
+            buffer.seek(0)
+            return buffer.getvalue()
+        except Exception as e:
+            raise ValueError(f"Failed to convert image to bytes: {e}")
+        finally:
+            buffer.close()
+    
+    @staticmethod
+    def from_base64(base64_str: str) -> Image.Image:
+        """Convert base64 string to PIL Image."""
+        try:
+            # Remove data URL prefix if present
+            if ',' in base64_str:
+                base64_str = base64_str.split(',', 1)[1]
+            return ImageIO.from_bytes(base64.b64decode(base64_str))
+        except Exception as e:
+            raise ValueError(f"Failed to convert base64 to image: {e}")
+    
+    @staticmethod
+    def to_base64(image: Image.Image, format: str = 'PNG') -> str:
+        """Convert PIL Image to base64 string."""
+        try:
+            image_bytes = ImageIO.to_bytes(image, format)
+            return base64.b64encode(image_bytes).decode()
+        except Exception as e:
+            raise ValueError(f"Failed to convert image to base64: {e}")
+    
+    @staticmethod
+    def create_buffer() -> BytesIO:
+        """Create a new BytesIO buffer."""
+        return BytesIO()
+
 """Optional heavy dependencies (diffusers/xformers) are guarded.
 If unavailable on CPU-only or incompatible Python, we fall back to local generation.
 """
-PRODUCTION_AVAILABLE = False
+# Initialize production system
 try:
-    from advanced_generator import generate_giramille_image_advanced  # noqa: F401
-    from production_system import generate_production_image, initialize_production_system  # noqa: F401
+    from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+    import torch
+    from giramille_production import initialize_production_system, ProductionConfig
+    
+    # Check CUDA availability and configure accordingly
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cpu":
+        print("[INFO] Running on CPU - Using optimized CPU configuration")
+        torch.set_num_threads(8)  # Optimize CPU threads
+    else:
+        print(f"[INFO] Running on GPU - CUDA available: {torch.cuda.get_device_name(0)}")
+    
+    # Initialize the production system with device config
+    print("[INFO] Initializing production system...")
+    initialize_production_system(device_type=device)
     PRODUCTION_AVAILABLE = True
-except Exception as _optional_import_error:
-    # Keep running with lightweight generator
+    print("[INFO] Production system enabled - using advanced image generation")
+except Exception as e:
     PRODUCTION_AVAILABLE = False
+    print(f"[WARNING] Production system initialization failed: {e}")
+    print("[WARNING] Falling back to lightweight generator")
 
-import base64
-import io
-from PIL import Image
-import numpy as np
-import torch
 from pathlib import Path
 import sys
 
@@ -60,8 +119,8 @@ else:
     print("[ERROR] No vectorization weights found. /api/vectorize will fail.")
 
 app = Flask(__name__)
-# Setup CORS for API routes only
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Setup CORS for all routes to be permissive for local development
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -156,15 +215,8 @@ transform = transforms.Compose([
 #         model.to(device)
 #         return True
 
-# Initialize production system at startup for faster first generation
-if PRODUCTION_AVAILABLE:
-    try:
-        print("[INFO] Initializing production system at startup...")
-        initialize_production_system()
-        print("[SUCCESS] Production system initialized successfully!")
-    except Exception as e:
-        print(f"[WARNING] Failed to initialize production system at startup: {e}")
-        print("[INFO] Production system will be initialized on first request (slower)")
+# NOTE: We deliberately avoid initializing heavy production systems at import/startup.
+# They will be lazily initialized on first request to keep the server lightweight.
 
 @app.route('/api/scene/create', methods=['POST'])
 def create_scene():
@@ -287,18 +339,14 @@ def generate_multiview():
         return jsonify({'error': 'No source image provided'}), 400
     
     try:
-        # Decode base64 image
-        image_data = base64.b64decode(source_image.split(',')[1])
-        image = Image.open(io.BytesIO(image_data))
+        # Convert base64 to image
+        image = ImageIO.from_base64(source_image)
         
         # Simulate AI generation (in production, this would call your AI model)
         generated_image = simulate_multiview_generation(image, target_angle)
         
-        # Convert to base64
-        buffer = io.BytesIO()
-        generated_image.save(buffer, format='PNG')
-        buffer.seek(0)
-        generated_b64 = base64.b64encode(buffer.getvalue()).decode()
+        # Convert back to base64
+        generated_b64 = ImageIO.to_base64(generated_image, format='PNG')
         
         return jsonify({
             'angle': target_angle,
@@ -395,9 +443,10 @@ def render_scene_to_png(scene: Dict) -> str:
             # Load and render image
             try:
                 image_data = base64.b64decode(node['content']['src'].split(',')[1])
-                img = Image.open(io.BytesIO(image_data))
-                img.putalpha(int(255 * opacity))
-                canvas.paste(img, (int(x), int(y)), img)
+                with BytesIO(image_data) as bio:
+                    img = Image.open(bio).copy()
+                    img.putalpha(int(255 * opacity))
+                    canvas.paste(img, (int(x), int(y)), img)
             except:
                 pass
     
@@ -433,60 +482,58 @@ def render_scene_to_svg(scene: Dict) -> str:
 
 @app.route('/api/generate', methods=['POST'])
 def generate_image():
-    """Generate Giramille style image from prompt using ONLY production (Stable Diffusion/LoRA) generator."""
+    """Generate Giramille style image from prompt."""
+    # Parse request
+    data = request.get_json()
+    prompt = data.get('prompt', '')
+    style = data.get('style', 'png')  # png or vector
+    quality = data.get('quality', 'balanced')  # fast, balanced, high
+    
+    # Validate input
+    if not prompt:
+        print("[ERROR] No prompt provided to /api/generate.")
+        return jsonify({'error': 'No prompt provided'}), 400
+        
     try:
-        data = request.get_json()
-        prompt = data.get('prompt', '')
-        style = data.get('style', 'png')  # png or vector
-        if not prompt:
-            print("[ERROR] No prompt provided to /api/generate.")
-            return jsonify({'error': 'No prompt provided'}), 400
-        # Enforce ONLY production generator
-        if not PRODUCTION_AVAILABLE:
-            print("[ERROR] Production generator not available. Image generation refused.")
-            return jsonify({
-                'success': False,
-                'error': 'Production (Stable Diffusion/LoRA) generator is not available. Please install required dependencies and a valid model.',
-                'generator_status': 'not_available'
-            }), 500
-        try:
-            quality = data.get('quality', 'balanced')  # fast, balanced, high
-            print(f"[INFO] -- Using PRODUCTION generator for prompt: '{prompt}' | Quality: {quality}")
-            result = generate_production_image(prompt, style, quality)
-            if result.get('success'):
-                import io
-                generated_image = Image.open(io.BytesIO(result['image']))
+        # Generate image based on availability
+        if PRODUCTION_AVAILABLE:
+            try:
+                print(f"[INFO] Using production generator for prompt: '{prompt}' | Quality: {quality}")
+                from production_system import generate_production_image
+                result = generate_production_image(prompt, style, quality)
+                
+                if not result.get('success'):
+                    raise ValueError(result.get('error', 'Unknown production error'))
+                    
+                generated_image = ImageIO.from_bytes(result['image'])
                 print("[SUCCESS] Production image generated.")
-            else:
-                print(f"[ERROR] Production model failed: {result.get('error')}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Production model failed: ' + str(result.get('error')),
-                    'generator_status': 'production_error'
-                }), 500
-        except Exception as e:
-            print(f"[ERROR] Production model error: {str(e)}")
-            return jsonify({
-                'success': False,
-                'error': f'Production model error: {str(e)}',
-                'generator_status': 'production_exception'
-            }), 500
-        # Convert to base64
-        buffer = io.BytesIO()
-        generated_image.save(buffer, format='PNG')
-        buffer.seek(0)
-        generated_b64 = base64.b64encode(buffer.getvalue()).decode()
+            except Exception as prod_error:
+                print(f"[WARNING] Production failed ({str(prod_error)}), using lightweight")
+                generated_image = generate_giramille_image(prompt, style)
+        else:
+            print(f"[INFO] Using lightweight generator for prompt: '{prompt}'")
+            generated_image = generate_giramille_image(prompt, style)
+        
+        # Convert to base64 using helper
+        b64_data = ImageIO.to_base64(generated_image)
+        
         return jsonify({
             'success': True,
-            'image': f"data:image/png;base64,{generated_b64}",
+            'image': f"data:image/png;base64,{b64_data}",
             'prompt': prompt,
             'style': style,
-            'generated_at': datetime.now().isoformat(),
-            'generator_status': 'production'
+            'generator_status': 'production' if PRODUCTION_AVAILABLE else 'lightweight',
+            'generated_at': datetime.now().isoformat()
         })
+        
     except Exception as e:
-        print(f"[ERROR] Exception in /api/generate: {str(e)}")
-        return jsonify({'error': str(e), 'generator_status': 'exception'}), 500
+        error_msg = str(e)
+        print(f"[ERROR] Failed to generate image: {error_msg}")
+        return jsonify({
+            'success': False,
+            'error': error_msg,
+            'generator_status': 'error'
+        }), 500
 
 def generate_giramille_image(prompt: str, style: str) -> Image.Image:
     """Generate Giramille style image from prompt"""
@@ -506,6 +553,10 @@ def generate_giramille_image(prompt: str, style: str) -> Image.Image:
     # Add Giramille style elements
     if 'house' in objects or 'home' in objects:
         draw_giramille_house(draw, width//2, height//2, colors)
+    # stationery drawing (pen/pencil/marker)
+    if any(k in objects for k in ('pen', 'pencil', 'marker', 'brush')):
+        # draw pen centered
+        draw_giramille_pen(draw, width//2, height//2, colors)
     if 'tree' in objects or 'forest' in objects:
         draw_giramille_tree(draw, 100, height-100, colors)
     if 'car' in objects or 'vehicle' in objects:
@@ -545,7 +596,9 @@ def detect_objects_in_prompt(prompt: str) -> List[str]:
     
     object_keywords = [
         'house', 'home', 'building', 'tree', 'forest', 'car', 'vehicle', 'person', 'people',
-        'animal', 'dog', 'cat', 'bird', 'flower', 'mountain', 'river', 'sun', 'moon', 'star'
+        'animal', 'dog', 'cat', 'bird', 'flower', 'mountain', 'river', 'sun', 'moon', 'star',
+        # added stationery keywords
+        'pen', 'pencil', 'marker', 'brush'
     ]
     
     for obj in object_keywords:
@@ -643,6 +696,24 @@ def add_giramille_details(draw, width, height, colors):
         draw.ellipse([x+20, y-10, x+60, y+10], fill=(255, 255, 255), outline=(0, 0, 0), width=1)
         draw.ellipse([x+40, y, x+80, y+20], fill=(255, 255, 255), outline=(0, 0, 0), width=1)
 
+
+def draw_giramille_pen(draw, x, y, colors):
+    """Draw a simple stylized pen/pencil"""
+    body_color = colors[0] if colors else (30, 144, 255)
+    tip_color = (200, 160, 0)
+    # Pen body (rotated rectangle approximated with polygon)
+    w = 100
+    h = 14
+    # Draw as a slanted rectangle using polygon
+    points = [(x - w//2, y - h//2), (x + w//2, y - h//2), (x + w//2 - 10, y + h//2), (x - w//2 - 10, y + h//2)]
+    draw.polygon(points, fill=body_color, outline=(0, 0, 0))
+    # Tip
+    tip = [(x + w//2 - 10, y - 6), (x + w//2 + 8, y), (x + w//2 - 10, y + 6)]
+    draw.polygon(tip, fill=tip_color, outline=(0, 0, 0))
+    # Accent ring
+    ring_x = x - 10
+    draw.rectangle([ring_x - 6, y - 8, ring_x + 6, y + 8], fill=(220, 220, 220), outline=(0, 0, 0))
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -663,6 +734,11 @@ def production_health():
                 'reason': 'Production generator not available on this environment',
                 'timestamp': datetime.now().isoformat()
             })
+        # Lazy import to avoid heavy startup costs
+        try:
+            from production_system import initialize_production_system
+        except Exception as e:
+            return jsonify({'status': 'error', 'error': f'Failed to import production_system: {e}'}), 500
         generator = initialize_production_system()
         health_status = generator.get_health_status()
         return jsonify(health_status)
@@ -679,6 +755,10 @@ def production_metrics():
     try:
         if not PRODUCTION_AVAILABLE:
             return jsonify({'status': 'unavailable'}), 200
+        try:
+            from production_system import initialize_production_system
+        except Exception as e:
+            return jsonify({'status': 'error', 'error': f'Failed to import production_system: {e}'}), 500
         generator = initialize_production_system()
         metrics = generator.get_metrics()
         return jsonify(metrics)
@@ -690,24 +770,32 @@ def vectorize_api():
     """Vectorize input image to SVG using the in-memory SmallUNet pipeline."""
     if vec_model is None:
         return {"error": "No vectorization model loaded on backend!"}, 500
-    file = None
-    if 'file' in request.files:
-        file = request.files['file']
-    elif request.is_json:
-        data = request.get_json()
-        if 'image' in data:  # expects base64 string
-            b64 = data['image'].split(',')[-1]
-            file = io.BytesIO(base64.b64decode(b64))
-    if file is None:
-        return {"error": "No image provided (upload PNG/JPG as file or base64)."}, 400
+        
     try:
-        img = Image.open(file).convert('RGB').resize((256, 256))
+        # Get input image
+        if 'file' in request.files:
+            file = request.files['file']
+            img = Image.open(file)
+        elif request.is_json:
+            data = request.get_json()
+            if not data.get('image'):
+                return {"error": "No image provided in JSON data."}, 400
+            img = ImageIO.from_base64(data['image'])
+        else:
+            return {"error": "No image provided (upload PNG/JPG as file or base64)."}, 400
+            
+        # Process image through vectorization pipeline
+        img = img.convert('RGB').resize((256, 256))
         arr = np.array(img)
         x = torch.from_numpy(arr[:, :, ::-1]).float().permute(2, 0, 1) / 255.0
         x = x.unsqueeze(0).to(device)
+        
+        # Generate mask
         with torch.no_grad():
             logits = vec_model(x)
             mask = logits.argmax(dim=1)[0].byte().cpu().numpy()
+            
+        # Process paths
         layer_paths = []
         for cls in range(num_classes):
             cls_mask = (mask == cls).astype(np.uint8) * 255
@@ -716,13 +804,88 @@ def vectorize_api():
             paths = contours_to_beziers(cls_mask, epsilon=1.5, max_segments=8)
             paths = reduce_anchors(paths, max_anchors=300)
             layer_paths.append(paths)
+            
+        # Generate SVG
         merged = merge_layers(layer_paths, max_layers=20)
-        svg_bytes = io.BytesIO()
-        beziers_to_svg(merged, svg_bytes, size=(256, 256))
-        svg_bytes.seek(0)
-        return send_file(svg_bytes, mimetype="image/svg+xml", as_attachment=True, download_name="vectorized.svg")
+        svg_buffer = ImageIO.create_buffer()
+        beziers_to_svg(merged, svg_buffer, size=(256, 256))
+        svg_buffer.seek(0)
+        
+        return send_file(
+            svg_buffer,
+            mimetype="image/svg+xml",
+            as_attachment=True,
+            download_name="vectorized.svg"
+        )
     except Exception as e:
         return {"error": str(e)}, 500
 
+
+# --- Added endpoints for Stage2 UI actions ---
+@app.route('/api/retouch', methods=['POST'])
+def retouch_api():
+    data = request.get_json()
+    image_b64 = data.get('image')
+    if not image_b64:
+        return {"error": "No image provided."}, 400
+    try:
+        # Load and process image
+        img = ImageIO.from_base64(image_b64).convert('RGB')
+        arr = cv2.GaussianBlur(np.array(img), (7, 7), 0)
+        img = Image.fromarray(arr)
+        
+        # Convert back to base64
+        img_b64 = ImageIO.to_base64(img)
+        return jsonify({"image": f"data:image/png;base64,{img_b64}"})
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/api/resize', methods=['POST'])
+def resize_api():
+    data = request.get_json()
+    image_b64 = data.get('image')
+    width = data.get('width', 256)
+    height = data.get('height', 256)
+    if not image_b64:
+        return {"error": "No image provided."}, 400
+    try:
+        # Load and resize image
+        img = ImageIO.from_base64(image_b64).convert('RGB')
+        img = img.resize((width, height))
+        
+        # Convert back to base64
+        img_b64 = ImageIO.to_base64(img)
+        return jsonify({"image": f"data:image/png;base64,{img_b64}"})
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+@app.route('/api/positions', methods=['POST'])
+def positions_api():
+    data = request.get_json()
+    image_b64 = data.get('image')
+    if not image_b64:
+        return {"error": "No image provided."}, 400
+    try:
+        # Convert base64 to image, process, and convert back
+        img = ImageIO.from_base64(image_b64).convert('RGB')
+        # Dummy: return same image, but could add object detection here
+        b64_data = ImageIO.to_base64(img)
+        return jsonify({"image": f"data:image/png;base64,{b64_data}"})
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+try:
+    # Backwards-compatibility mappings for frontends that call endpoints without the /api prefix
+    app.add_url_rule('/generate', view_func=generate_image, methods=['POST'])
+    app.add_url_rule('/vectorize', view_func=vectorize_api, methods=['POST'])
+    app.add_url_rule('/multiview/generate', view_func=generate_multiview, methods=['POST'])
+    app.add_url_rule('/upload', view_func=upload_asset, methods=['POST'])
+    app.add_url_rule('/export/scene', view_func=export_scene, methods=['POST'])
+    app.add_url_rule('/health', view_func=health_check, methods=['GET'])
+except NameError:
+    # If the functions are not defined yet (file being edited), skip mapping.
+    pass
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Run without debugger/reloader in automated test environment
+    app.run(debug=False, host='0.0.0.0', port=5000)

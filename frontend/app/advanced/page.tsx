@@ -17,11 +17,19 @@ export default function AdvancedPage() {
     setCurrentMode(mode);
   };
 
+  // Quality settings for different modes
+  const qualitySettings = {
+    draft: 'fast',
+    standard: 'balanced',
+    premium: 'high'
+  };
+  const [selectedQuality, setSelectedQuality] = useState('standard');
+
   const handleGenerateImage = async (prompt: string, style: string) => {
     setIsGenerating(true);
     
     try {
-      console.log('🔄 Calling backend API for advanced generation...');
+      console.log('🔄 Calling production image generation API...');
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -29,10 +37,8 @@ export default function AdvancedPage() {
         },
         body: JSON.stringify({
           prompt: prompt,
-          style: style,
-          quality: 'high',
-          width: 512,
-          height: 512
+          style: style || 'png',
+          quality: qualitySettings[selectedQuality as keyof typeof qualitySettings]
         })
       });
 
@@ -206,16 +212,38 @@ export default function AdvancedPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">
                     Style
                   </label>
-                  <select 
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                    value={generateStyle}
-                    onChange={(e) => setGenerateStyle(e.target.value)}
-                  >
-                    <option value="giramille">Giramille Style</option>
-                    <option value="realistic">Realistic</option>
-                    <option value="cartoon">Cartoon</option>
-                    <option value="abstract">Abstract</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">
+                        Style
+                      </label>
+                      <select 
+                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        value={generateStyle}
+                        onChange={(e) => setGenerateStyle(e.target.value)}
+                      >
+                        <option value="giramille">Giramille Style</option>
+                        <option value="realistic">Realistic</option>
+                        <option value="cartoon">Cartoon</option>
+                        <option value="abstract">Abstract</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2 mt-4">
+                        Quality
+                      </label>
+                      <select 
+                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        value={selectedQuality}
+                        onChange={(e) => setSelectedQuality(e.target.value)}
+                      >
+                        <option value="draft">Draft (Fast)</option>
+                        <option value="standard">Standard (Balanced)</option>
+                        <option value="premium">Premium (High Quality)</option>
+                      </select>
+                    </div>
+                  </div>
                   
                   <button
                     onClick={() => handleGenerateImage(generatePrompt, generateStyle)}

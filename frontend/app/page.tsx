@@ -218,21 +218,21 @@ export default function HomePage() {
 	 };
 
 	const generateImageFromPrompt = async (prompt: string, type: 'png' | 'vector'): Promise<string> => {
-		console.log('AI Image Generation - Prompt:', prompt, 'Type:', type);
+		console.log('Production AI Image Generation - Prompt:', prompt, 'Type:', type);
 		setIsGenerating(true);
 
 		try {
-			console.log('🔄 Calling backend API...');
-			// Call backend API for AI generation
+			console.log('🔄 Calling production generation API...');
+			// Call backend API for AI generation with Giramille style
 			const response = await fetch('/api/generate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
 				body: JSON.stringify({
-					prompt: prompt,
-					style: type === 'vector' ? 'cartoon' : 'cartoon',
-					quality: 'fast',
+					prompt: `${prompt}, Giramille style, professional illustration`,
+					style: type,
+					quality: 'balanced',
 					width: 512,
 					height: 512
 				}),
