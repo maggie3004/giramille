@@ -271,6 +271,10 @@ __marimo__/
 !venv_advanced/
 !venv_advanced/**
 
+venv_310/
+venv_stable/
+frontend/venv_310/
+
 # Allow important root files
 !.gitignore
 !.gitattributes

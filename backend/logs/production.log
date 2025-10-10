@@ -151,3 +151,114 @@
 2025-10-10 02:12:22,335 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
 2025-10-10 02:12:22,600 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
 2025-10-10 02:12:22,756 - werkzeug - INFO - 127.0.0.1 - - [10/Oct/2025 02:12:22] "[33mOPTIONS /generate HTTP/1.1[0m" 404 -
+2025-10-10 23:32:06,784 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-10 23:32:06,804 - production_system - INFO - Loading production model...
+2025-10-10 23:32:06,804 - production_system - INFO - Loading base model...
+2025-10-10 23:32:21,594 - production_system - INFO - Memory efficient attention not available, using standard attention
+2025-10-10 23:32:21,594 - production_system - INFO - [SUCCESS] Production model loaded successfully!
+2025-10-10 23:32:21,594 - production_system - INFO - [STARTUP] Production system initialized
+2025-10-10 23:32:22,108 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-10 23:32:22,108 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 00:20:33,884 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 00:20:33,885 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 00:20:36,460 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 00:22:12,827 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 00:22:12,827 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 00:22:14,414 - production_system - ERROR - Failed to initialize model pipeline: You are trying to load model files of the `variant=fp32`, but no such modeling files are available. 
+2025-10-11 00:23:09,747 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 00:23:09,748 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 00:23:11,649 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 00:23:59,505 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 00:23:59,505 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 00:24:01,703 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:10:34,568 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:10:34,585 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:10:34,585 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:10:34,586 - production_system - INFO - Loading base model...
+2025-10-11 01:10:37,044 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:10:37,045 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:10:37,127 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:10:37,128 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:22:50,454 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:22:50,465 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:22:50,466 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:22:50,466 - production_system - INFO - Loading base model...
+2025-10-11 01:22:53,890 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:22:53,891 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:22:54,001 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:22:54,002 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:27:12,146 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:27:12,156 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:27:12,156 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:27:12,157 - production_system - INFO - Loading base model...
+2025-10-11 01:27:14,040 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:27:14,040 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:27:14,114 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:27:14,115 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:32:34,442 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:32:34,460 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:32:34,460 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:32:34,460 - production_system - INFO - Loading base model...
+2025-10-11 01:32:36,311 - production_system - ERROR - Failed to initialize model pipeline: You are trying to load model files of the `variant=fp32`, but no such modeling files are available. 
+2025-10-11 01:32:36,312 - production_system - ERROR - [ERROR] Failed to initialize production system: You are trying to load model files of the `variant=fp32`, but no such modeling files are available. 
+2025-10-11 01:32:36,442 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:32:36,443 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:36:47,065 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:36:47,069 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:36:47,069 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:36:47,070 - production_system - INFO - Loading base model...
+2025-10-11 01:36:48,714 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:36:48,715 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:36:48,792 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:36:48,793 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:37:40,468 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:37:40,472 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:37:40,473 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:37:40,473 - production_system - INFO - Loading base model...
+2025-10-11 01:37:42,688 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:37:42,689 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:37:42,764 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:37:42,764 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:38:19,615 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:38:19,619 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:38:19,620 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:38:19,620 - production_system - INFO - Loading base model...
+2025-10-11 01:38:21,107 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:38:21,107 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:38:21,188 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:38:21,189 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-11 01:39:58,087 - production_system - INFO - [STARTUP] Creating production system with cpu configuration
+2025-10-11 01:39:58,090 - production_system - INFO - [SUCCESS] Redis cache connected
+2025-10-11 01:39:58,090 - production_system - INFO - Loading model runwayml/stable-diffusion-v1-5 on cpu
+2025-10-11 01:39:58,091 - production_system - INFO - Loading base model...
+2025-10-11 01:40:00,054 - production_system - ERROR - Failed to initialize model pipeline: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:40:00,054 - production_system - ERROR - [ERROR] Failed to initialize production system: CLIPTextModel.__init__() got an unexpected keyword argument 'offload_state_dict'
+2025-10-11 01:40:00,136 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.39.199.157:5000
+2025-10-11 01:40:00,137 - werkzeug - INFO - [33mPress CTRL+C to quit[0m

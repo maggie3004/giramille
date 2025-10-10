@@ -73,9 +73,37 @@ export default function Stage2Page() {
 	 };
 
 	 // Wire up actions
-	 const handleRetouch = async () => { alert('Retouch action (connect /api/retouch if backend is ready)'); };
-	 const handleResize = async () => { alert('Resize action (connect /api/resize if backend is ready)'); };
-	 const handlePositions = async () => { alert('Positions action (connect /api/positions if backend is ready)'); };
+	 const handleRetouch = async () => {
+		 if (!image) return alert('No image to retouch');
+		 const resp = await fetch('/api/retouch', {
+			 method: 'POST',
+			 headers: { 'Content-Type': 'application/json' },
+			 body: JSON.stringify({ image })
+		 });
+		 const data = await resp.json();
+		 if (data.image) setImage(data.image);
+	 };
+	 const handleResize = async () => {
+		 if (!image) return alert('No image to resize');
+		 const width = 256, height = 256; // Example: resize to 256x256
+		 const resp = await fetch('/api/resize', {
+			 method: 'POST',
+			 headers: { 'Content-Type': 'application/json' },
+			 body: JSON.stringify({ image, width, height })
+		 });
+		 const data = await resp.json();
+		 if (data.image) setImage(data.image);
+	 };
+	 const handlePositions = async () => {
+		 if (!image) return alert('No image for positions');
+		 const resp = await fetch('/api/positions', {
+			 method: 'POST',
+			 headers: { 'Content-Type': 'application/json' },
+			 body: JSON.stringify({ image })
+		 });
+		 const data = await resp.json();
+		 if (data.image) setImage(data.image);
+	 };
 	 const handleCancel = () => window.location.href = '/';
 	 const handleExport = async () => {
 		 if (!image) return alert('No image to export');
