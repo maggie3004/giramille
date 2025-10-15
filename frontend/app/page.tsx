@@ -1417,13 +1417,33 @@ export default function HomePage() {
 				 {/* Preview Area */}
 				 {preview && (
 					 <div className="absolute z-30 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white p-4 rounded-lg shadow-lg max-w-md">
-					 	<img src={preview} alt="Generated" className="w-full h-auto rounded" />
+					 	<img 
+							src={preview} 
+							alt="Generated" 
+							className="w-full h-auto rounded cursor-pointer hover:opacity-90 transition-opacity" 
+							onClick={() => {
+								// Store the image in localStorage and navigate to stage 2
+								localStorage.setItem('selectedImage', preview);
+								window.location.href = '/stage2';
+							}}
+						/>
 					 	<button 
 					 		onClick={() => setPreview(null)} 
 					 		className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
 					 	>
 					 		×
 					 	</button>
+					 	<div className="mt-2 text-center">
+					 		<button 
+					 			onClick={() => {
+					 				localStorage.setItem('selectedImage', preview);
+					 				window.location.href = '/stage2';
+					 			}}
+					 			className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+					 		>
+					 			Edit in Stage 2
+					 		</button>
+					 	</div>
 					 </div>
 				 )}
 
@@ -1431,7 +1451,26 @@ export default function HomePage() {
 				 <div className={`absolute z-20 overflow-auto scrollbox ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.hist) }} onMouseDown={(e)=>startDrag(e,'hist')}>
 					 <div className="grid grid-cols-1 gap-2">
 						 {historyImgs.map((src, idx) => (
-							 <img key={idx} src={src} alt={"hist-"+idx} className="w-full h-24 object-cover rounded cursor-pointer" onClick={() => setPreview(src)} />
+							 <div key={idx} className="relative group">
+								 <img 
+									src={src} 
+									alt={"hist-"+idx} 
+									className="w-full h-24 object-cover rounded cursor-pointer hover:opacity-90 transition-opacity" 
+									onClick={() => setPreview(src)} 
+								/>
+								<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded flex items-center justify-center">
+									<button 
+										onClick={(e) => {
+											e.stopPropagation();
+											localStorage.setItem('selectedImage', src);
+											window.location.href = '/stage2';
+										}}
+										className="opacity-0 group-hover:opacity-100 bg-blue-600 text-white px-2 py-1 rounded text-xs transition-opacity"
+									>
+										Edit
+									</button>
+								</div>
+							 </div>
 						 ))}
 					 </div>
 				 </div>
