@@ -292,3 +292,6 @@ frontend/venv_310/
 !*.yml
 !*.yaml
 !*.json
+
+frontend/node_modules/
+/node_modules/

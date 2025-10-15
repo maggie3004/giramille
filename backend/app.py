@@ -714,6 +714,70 @@ def draw_giramille_pen(draw, x, y, colors):
     ring_x = x - 10
     draw.rectangle([ring_x - 6, y - 8, ring_x + 6, y + 8], fill=(220, 220, 220), outline=(0, 0, 0))
 
+# Image processing helper functions for retouch
+def change_house_color(img: Image.Image, new_color: tuple) -> Image.Image:
+    """Change house color in the image"""
+    # Convert to numpy array for processing
+    arr = np.array(img)
+    
+    # Simple color replacement - find pixels that look like house colors
+    # This is a basic implementation - in production, you'd use more sophisticated detection
+    for y in range(arr.shape[0]):
+        for x in range(arr.shape[1]):
+            pixel = arr[y, x]
+            # Check if pixel is in typical house color range (browns, reds, etc.)
+            if (pixel[0] > 100 and pixel[1] < 150 and pixel[2] < 150):  # Reddish colors
+                # Blend with new color
+                arr[y, x] = [
+                    int(pixel[0] * 0.3 + new_color[0] * 0.7),
+                    int(pixel[1] * 0.3 + new_color[1] * 0.7),
+                    int(pixel[2] * 0.3 + new_color[2] * 0.7)
+                ]
+    
+    return Image.fromarray(arr)
+
+def add_trees_to_image(img: Image.Image) -> Image.Image:
+    """Add trees to the image"""
+    draw = ImageDraw.Draw(img)
+    width, height = img.size
+    
+    # Add a few trees
+    for i in range(3):
+        x = 50 + i * 150
+        y = height - 100
+        
+        # Tree trunk
+        draw.rectangle([x-8, y-40, x+8, y], fill=(101, 67, 33), outline=(0, 0, 0), width=2)
+        
+        # Tree leaves
+        draw.ellipse([x-40, y-80, x+40, y-20], fill=(34, 139, 34), outline=(0, 0, 0), width=2)
+    
+    return img
+
+def add_clouds_to_image(img: Image.Image) -> Image.Image:
+    """Add clouds to the image"""
+    draw = ImageDraw.Draw(img)
+    width, height = img.size
+    
+    # Add clouds
+    for i in range(4):
+        x = 50 + i * 200
+        y = 30 + i * 10
+        
+        # Cloud shape
+        draw.ellipse([x, y, x+60, y+30], fill=(255, 255, 255), outline=(200, 200, 200), width=1)
+        draw.ellipse([x+20, y-10, x+80, y+20], fill=(255, 255, 255), outline=(200, 200, 200), width=1)
+        draw.ellipse([x+40, y, x+100, y+30], fill=(255, 255, 255), outline=(200, 200, 200), width=1)
+    
+    return img
+
+def adjust_brightness(img: Image.Image, factor: float) -> Image.Image:
+    """Adjust image brightness"""
+    arr = np.array(img).astype(np.float32)
+    arr = arr * factor
+    arr = np.clip(arr, 0, 255).astype(np.uint8)
+    return Image.fromarray(arr)
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -826,13 +890,56 @@ def vectorize_api():
 def retouch_api():
     data = request.get_json()
     image_b64 = data.get('image')
+    prompt = data.get('prompt', '')
+    
     if not image_b64:
         return {"error": "No image provided."}, 400
+    
     try:
         # Load and process image
         img = ImageIO.from_base64(image_b64).convert('RGB')
-        arr = cv2.GaussianBlur(np.array(img), (7, 7), 0)
-        img = Image.fromarray(arr)
+        
+        # Apply different effects based on prompt
+        if prompt:
+            prompt_lower = prompt.lower()
+            
+            # Color changes
+            if 'brown' in prompt_lower and 'house' in prompt_lower:
+                # Change house color to brown
+                img = change_house_color(img, (139, 69, 19))  # Brown color
+            elif 'blue' in prompt_lower and 'house' in prompt_lower:
+                # Change house color to blue
+                img = change_house_color(img, (0, 100, 200))
+            elif 'red' in prompt_lower and 'house' in prompt_lower:
+                # Change house color to red
+                img = change_house_color(img, (200, 0, 0))
+            
+            # Add trees
+            if 'tree' in prompt_lower or 'trees' in prompt_lower:
+                img = add_trees_to_image(img)
+            
+            # Add clouds
+            if 'cloud' in prompt_lower or 'sky' in prompt_lower:
+                img = add_clouds_to_image(img)
+            
+            # Brightness adjustment
+            if 'bright' in prompt_lower or 'brighter' in prompt_lower:
+                img = adjust_brightness(img, 1.3)
+            elif 'dark' in prompt_lower or 'darker' in prompt_lower:
+                img = adjust_brightness(img, 0.7)
+            
+            # Blur effect for "soft" or "smooth"
+            if 'soft' in prompt_lower or 'smooth' in prompt_lower:
+                arr = cv2.GaussianBlur(np.array(img), (15, 15), 0)
+                img = Image.fromarray(arr)
+            else:
+                # Default subtle enhancement
+                arr = cv2.GaussianBlur(np.array(img), (3, 3), 0)
+                img = Image.fromarray(arr)
+        else:
+            # Default processing
+            arr = cv2.GaussianBlur(np.array(img), (7, 7), 0)
+            img = Image.fromarray(arr)
         
         # Convert back to base64
         img_b64 = ImageIO.to_base64(img)
