@@ -194,7 +194,7 @@ export default function AdvancedPage() {
         {currentMode === 'generate' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">AI Image Generation</h2>
+              <h2 className="text-xl font-semibold mb-4 text-black">AI Image Generation</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -202,7 +202,7 @@ export default function AdvancedPage() {
                     Prompt
                   </label>
                   <textarea
-                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                     rows={4}
                     placeholder="Describe the image you want to generate..."
                     value={generatePrompt}
@@ -218,7 +218,7 @@ export default function AdvancedPage() {
                         Style
                       </label>
                       <select 
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                         value={generateStyle}
                         onChange={(e) => setGenerateStyle(e.target.value)}
                       >
@@ -234,7 +234,7 @@ export default function AdvancedPage() {
                         Quality
                       </label>
                       <select 
-                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 bg-white text-black"
                         value={selectedQuality}
                         onChange={(e) => setSelectedQuality(e.target.value)}
                       >
@@ -276,7 +276,7 @@ export default function AdvancedPage() {
         {currentMode === 'edit' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Advanced Scene Editor</h2>
+              <h2 className="text-xl font-semibold mb-4 text-black">Advanced Scene Editor</h2>
               <p className="text-gray-600 mb-6">
                 Freepik-level modular editing with real-time manipulation
               </p>
@@ -292,7 +292,7 @@ export default function AdvancedPage() {
         {currentMode === 'multi-view' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Multi-View Generation</h2>
+              <h2 className="text-xl font-semibold mb-4 text-black">Multi-View Generation</h2>
               <p className="text-gray-600 mb-6">
                 Adobe Illustrator-style multi-view generation from different angles
               </p>
@@ -343,7 +343,7 @@ export default function AdvancedPage() {
         {currentMode === 'vector' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">Vector Export</h2>
+              <h2 className="text-xl font-semibold mb-4 text-black">Vector Export</h2>
               <p className="text-gray-600 mb-6">
                 Professional PNG→Vector conversion with layer separation
               </p>
