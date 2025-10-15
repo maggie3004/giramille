@@ -1387,8 +1387,8 @@ export default function HomePage() {
 				 <img src={UI} alt="" className="absolute inset-0 w-full h-full object-contain z-10 pointer-events-none" />
 
 				 {/* Prompt */}
-				 <div className={`absolute z-20 overflow-auto scrollbox ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.prompt), borderRadius: 16 }} onMouseDown={(e)=>startDrag(e,'prompt')}>
-					 <textarea className="w-full h-full bg-transparent outline-none resize-none border-0 scrollbox" style={{ fontSize: '13px', color: '#000080', padding: '6px 10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', boxSizing: 'border-box' }} value={prompt} onChange={(e)=>setPrompt(e.target.value)} wrap="soft" />
+				 <div className={`absolute z-20 ${calib ? 'outline outline-2 outline-yellow-400' : ''}`} style={{ ...toStyle(rects.prompt), borderRadius: 16 }} onMouseDown={(e)=>startDrag(e,'prompt')}>
+					 <textarea className="w-full h-full bg-transparent outline-none resize-none border-0 scrollbox" style={{ fontSize: '18px', color: '#000080', padding: '6px 10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', boxSizing: 'border-box' }} value={prompt} onChange={(e)=>setPrompt(e.target.value)} wrap="soft" />
 					 {isGenerating && (
 					 	<div className="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
 					 		Generating...
