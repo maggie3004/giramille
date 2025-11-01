@@ -2,341 +2,207 @@
 Advanced Training System for Giramille Style
 This will train the model specifically for Giramille style with better color accuracy
 """
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
-from PIL import Image, ImageDraw, ImageFont
-import numpy as np
+# core imports
+import logging
 import os
-import json
-from typing import List, Dict, Tuple
 import random
 from datetime import datetime
-import logging
+from typing import List, Optional, Tuple
+
+# third-party
+import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+from PIL import Image
+from transformers import CLIPProcessor, CLIPModel
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class GiramilleDataset(Dataset):
-    """Dataset for Giramille style training"""
-    
-    def __init__(self, data_dir: str = "data/giramille_training"):
-        self.data_dir = data_dir
-        self.samples = self._load_training_data()
-        
-    def _load_training_data(self) -> List[Dict]:
-        """Load training data for Giramille style"""
-        samples = []
-        
-        # Create training data if it doesn't exist
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir, exist_ok=True)
-            self._generate_training_data()
-        
-        # Load existing training data
-        for filename in os.listdir(self.data_dir):
-            if filename.endswith('.json'):
-                with open(os.path.join(self.data_dir, filename), 'r') as f:
-                    data = json.load(f)
-                    samples.append(data)
-        
-        return samples
-    
-    def _generate_training_data(self):
-        """Generate training data for Giramille style"""
-        logger.info("Generating Giramille training data...")
-        
-        # Color-object combinations for training
-        color_objects = [
-            ("blue", "house"), ("red", "house"), ("green", "house"), ("yellow", "house"),
-            ("blue", "car"), ("red", "car"), ("green", "car"), ("yellow", "car"),
-            ("blue", "tree"), ("green", "tree"), ("purple", "mountain"), ("orange", "sunset"),
-            ("pink", "flower"), ("brown", "tree"), ("white", "house"), ("black", "car")
-        ]
-        
-        # Generate training samples
-        for i, (color, obj) in enumerate(color_objects):
-            sample = {
-                "prompt": f"{color} {obj}, cartoon style, Giramille",
-                "enhanced_prompt": f"bright {color} {obj}, vivid {color} colored {obj}, cartoon style, Giramille",
-                "color": color,
-                "object": obj,
-                "style": "giramille",
-                "id": i
-            }
-            
-            # Save sample
-            with open(os.path.join(self.data_dir, f"sample_{i}.json"), 'w') as f:
-                json.dump(sample, f, indent=2)
-        
-        logger.info(f"Generated {len(color_objects)} training samples")
-    
-    def __len__(self):
-        return len(self.samples)
-    
-    def __getitem__(self, idx):
-        return self.samples[idx]
 
-class GiramilleStyleTrainer:
-    """Advanced trainer for Giramille style"""
-    
-    def __init__(self, model_path: str = "runwayml/stable-diffusion-v1-5"):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model_path = model_path
-        self.pipe = None
-        self.load_model()
-        
-    def load_model(self):
-        """Load the base model for training"""
-        try:
-            logger.info("Loading base model for training...")
-            self.pipe = StableDiffusionPipeline.from_pretrained(
-                self.model_path,
-                torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-                safety_checker=None,
-                requires_safety_checker=False
-            )
-            self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
-            self.pipe = self.pipe.to(self.device)
-            self.pipe.enable_attention_slicing()
-            logger.info("✅ Model loaded successfully!")
-        except Exception as e:
-            logger.error(f"❌ Error loading model: {e}")
-            raise
-    
-    def train_giramille_style(self, epochs: int = 10, batch_size: int = 4):
-        """Train the model for Giramille style"""
-        logger.info("🚀 Starting Giramille style training...")
-        
-        # Load dataset
-        dataset = GiramilleDataset()
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        
-        # Training loop
-        for epoch in range(epochs):
-            logger.info(f"Epoch {epoch + 1}/{epochs}")
-            
-            for batch_idx, batch in enumerate(dataloader):
-                try:
-                    # Process batch
-                    prompts = batch['prompt'] if isinstance(batch, dict) else [item['prompt'] for item in batch]
-                    enhanced_prompts = batch['enhanced_prompt'] if isinstance(batch, dict) else [item['enhanced_prompt'] for item in batch]
-                    
-                    # Generate images with both prompts
-                    for prompt, enhanced_prompt in zip(prompts, enhanced_prompts):
-                        self._train_single_prompt(prompt, enhanced_prompt, epoch, batch_idx)
-                        
-                except Exception as e:
-                    logger.error(f"Error in batch {batch_idx}: {e}")
-                    continue
-            
-            logger.info(f"Completed epoch {epoch + 1}")
-        
-        # Save trained model
-        self._save_trained_model()
-        logger.info("🎉 Training completed!")
-    
-    def _train_single_prompt(self, prompt: str, enhanced_prompt: str, epoch: int, batch_idx: int):
-        """Train on a single prompt"""
-        try:
-            # Generate image with enhanced prompt
-            with torch.no_grad():
-                result = self.pipe(
-                    enhanced_prompt,
-                    num_inference_steps=20,  # Faster for training
-                    guidance_scale=7.5,
-                    height=512,
-                    width=512,
-                    generator=torch.Generator().manual_seed(42)
-                )
-            
-            # Save training sample
-            output_dir = f"outputs/training/epoch_{epoch}"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            image = result.images[0]
-            filename = f"epoch_{epoch}_batch_{batch_idx}_{prompt.replace(' ', '_')}.png"
-            image.save(os.path.join(output_dir, filename))
-            
-            logger.info(f"Generated: {filename}")
-            
-        except Exception as e:
-            logger.error(f"Error generating image for prompt '{prompt}': {e}")
-    
-    def _save_trained_model(self):
-        """Save the trained model"""
-        try:
-            output_dir = "outputs/trained_models"
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Save model
-            model_path = os.path.join(output_dir, "giramille_style_model")
-            self.pipe.save_pretrained(model_path)
-            
-            # Save training info
-            training_info = {
-                "model_path": model_path,
-                "training_date": datetime.now().isoformat(),
-                "device": self.device,
-                "base_model": self.model_path
-            }
-            
-            with open(os.path.join(output_dir, "training_info.json"), 'w') as f:
-                json.dump(training_info, f, indent=2)
-            
-            logger.info(f"✅ Model saved to: {model_path}")
-            
-        except Exception as e:
-            logger.error(f"Error saving model: {e}")
+class GiramilleStyleDataset(Dataset):
+    """
+    Minimal dataset placeholder. Replace with real dataset logic that yields (prompt, image_path) pairs
+    or only prompts depending on your training strategy (fine-tune vs. evaluation).
+    """
+
+    def __init__(self, prompts: List[str]):
+        self.prompts = prompts
+
+    def __len__(self):
+        return len(self.prompts)
+
+    def __getitem__(self, idx):
+        return self.prompts[idx]
+
 
 class GiramilleStyleValidator:
-    """Validator for Giramille style quality"""
-    
-    def __init__(self):
-        self.color_accuracy_threshold = 0.8
-        self.style_consistency_threshold = 0.7
-    
-    def validate_color_accuracy(self, prompt: str, image: Image.Image) -> float:
-        """Validate color accuracy of generated image"""
-        # Extract expected colors from prompt
-        expected_colors = self._extract_expected_colors(prompt)
-        
-        # Analyze image colors
-        image_colors = self._analyze_image_colors(image)
-        
-        # Calculate accuracy
-        accuracy = self._calculate_color_accuracy(expected_colors, image_colors)
-        
-        return accuracy
-    
-    def _extract_expected_colors(self, prompt: str) -> List[str]:
-        """Extract expected colors from prompt"""
-        colors = []
-        prompt_lower = prompt.lower()
-        
-        color_keywords = ['blue', 'red', 'green', 'yellow', 'purple', 'orange', 'pink', 'brown', 'white', 'black']
-        
-        for color in color_keywords:
-            if color in prompt_lower:
-                colors.append(color)
-        
-        return colors
-    
-    def _analyze_image_colors(self, image: Image.Image) -> List[str]:
-        """Analyze dominant colors in image"""
-        # Convert to RGB
-        image = image.convert('RGB')
-        
-        # Get dominant colors
-        colors = image.getcolors(maxcolors=256*256*256)
-        if not colors:
-            return []
-        
-        # Sort by frequency
-        colors.sort(key=lambda x: x[0], reverse=True)
-        
-        # Convert to color names
-        dominant_colors = []
-        for count, (r, g, b) in colors[:5]:  # Top 5 colors
-            color_name = self._rgb_to_color_name(r, g, b)
-            if color_name:
-                dominant_colors.append(color_name)
-        
-        return dominant_colors
-    
-    def _rgb_to_color_name(self, r: int, g: int, b: int) -> str:
-        """Convert RGB to color name"""
-        color_ranges = {
-            'red': [(200, 0, 0), (255, 100, 100)],
-            'blue': [(0, 0, 200), (100, 100, 255)],
-            'green': [(0, 200, 0), (100, 255, 100)],
-            'yellow': [(200, 200, 0), (255, 255, 100)],
-            'purple': [(200, 0, 200), (255, 100, 255)],
-            'orange': [(255, 165, 0), (255, 200, 100)],
-            'pink': [(255, 192, 203), (255, 220, 220)],
-            'brown': [(139, 69, 19), (200, 150, 100)],
-            'white': [(240, 240, 240), (255, 255, 255)],
-            'black': [(0, 0, 0), (50, 50, 50)]
-        }
-        
-        for color_name, (min_rgb, max_rgb) in color_ranges.items():
-            if (min_rgb[0] <= r <= max_rgb[0] and 
-                min_rgb[1] <= g <= max_rgb[1] and 
-                min_rgb[2] <= b <= max_rgb[2]):
-                return color_name
-        
-        return None
-    
-    def _calculate_color_accuracy(self, expected: List[str], actual: List[str]) -> float:
-        """Calculate color accuracy score"""
-        if not expected:
-            return 1.0
-        
-        matches = 0
-        for expected_color in expected:
-            if expected_color in actual:
-                matches += 1
-        
-        return matches / len(expected)
+    """Validator for Giramille style quality (CLIP + simple color metric)."""
 
-def run_advanced_training():
-    """Run advanced training for Giramille style"""
-    logger.info("🚀 Starting Advanced Giramille Training Pipeline")
-    
-    try:
-        # Initialize trainer
-        trainer = GiramilleStyleTrainer()
-        
-        # Run training
-        trainer.train_giramille_style(epochs=5, batch_size=2)
-        
-        # Validate results
-        validator = GiramilleStyleValidator()
-        
-        # Test with sample prompts
-        test_prompts = [
-            "blue house with red car, cartoon style",
-            "green tree with yellow flowers, nature scene",
-            "purple mountain with orange sunset, landscape"
-        ]
-        
-        logger.info("🧪 Testing trained model...")
-        for prompt in test_prompts:
+    def __init__(self, device: Optional[torch.device | str] = None):
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        # load CLIP for text-image scoring; failures degrade gracefully
+        try:
+            self.clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(self.device)
+            self.clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        except Exception as e:
+            logger.warning(f"Failed to load CLIP for validation: {e}")
+            self.clip_model = None
+            self.clip_processor = None
+
+    def validate_clip_similarity(self, prompt: str, image: Image.Image) -> float:
+        """Return CLIP cosine similarity normalized to 0..1 (higher = text matches image)."""
+        if self.clip_model is None or self.clip_processor is None:
+            return 0.0
+        try:
+            inputs = self.clip_processor(text=[prompt], images=image, return_tensors="pt", padding=True).to(self.device)
+            with torch.no_grad():
+                outputs = self.clip_model(**inputs)
+            text_emb = outputs.text_embeds
+            image_emb = outputs.image_embeds
+            sim = torch.nn.functional.cosine_similarity(text_emb, image_emb).cpu().item()
+            return float((sim + 1.0) / 2.0)
+        except Exception as e:
+            logger.debug(f"CLIP similarity error: {e}")
+            return 0.0
+
+    def validate_color_accuracy(self, image: Image.Image) -> float:
+        """
+        Simple colorfulness proxy: mean saturation-weighted value.
+        Returns value in 0..1.
+        """
+        try:
+            im = image.convert("RGB")
+            arr = np.asarray(im).astype(np.float32) / 255.0
+            maxc = arr.max(axis=2)
+            minc = arr.min(axis=2)
+            saturation = np.where(maxc == 0, 0, (maxc - minc) / (maxc + 1e-8))
+            value = maxc
+            score = float(np.clip(saturation.mean() * 0.7 + value.mean() * 0.3, 0.0, 1.0))
+            return score
+        except Exception as e:
+            logger.debug(f"Color accuracy error: {e}")
+            return 0.0
+
+
+def generate_best_image(
+    pipe: StableDiffusionPipeline,
+    prompt: str,
+    out_dir: str,
+    epoch: int,
+    batch_idx: int,
+    device: Optional[torch.device | str] = None,
+    seeds: Optional[List[int]] = None,
+    num_inference_steps: int = 100,
+    guidance_scale: float = 10,
+    height: int = 512,
+    width: int = 512,
+) -> Tuple[float, Optional[Image.Image]]:
+    """
+    Generate multiple samples for a prompt, score them with CLIP + color metric,
+    and save the best image to disk.
+    Returns (best_score, best_image).
+    """
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    validator = GiramilleStyleValidator(device=device)
+    gen_params = dict(num_inference_steps=num_inference_steps, guidance_scale=guidance_scale, height=height, width=width)
+
+    best_score = -1.0
+    best_image = None
+    seeds = seeds or [42, random.randint(0, 2**31 - 1), random.randint(0, 2**31 - 1)]
+
+    for seed in seeds:
+        try:
+            # create generator when pipeline accepts it; generator device must match pipeline device
+            gen = None
             try:
-                # Generate test image
-                result = trainer.pipe(
-                    prompt,
-                    num_inference_steps=50,
-                    guidance_scale=7.5,
-                    height=512,
-                    width=512
-                )
-                
-                image = result.images[0]
-                
-                # Validate
-                accuracy = validator.validate_color_accuracy(prompt, image)
-                logger.info(f"Prompt: {prompt}")
-                logger.info(f"Color Accuracy: {accuracy:.2f}")
-                
-                # Save test image
-                test_dir = "outputs/test_images"
-                os.makedirs(test_dir, exist_ok=True)
-                filename = f"test_{prompt.replace(' ', '_').replace(',', '')}.png"
-                image.save(os.path.join(test_dir, filename))
-                
-            except Exception as e:
-                logger.error(f"Error testing prompt '{prompt}': {e}")
-        
-        logger.info("🎉 Advanced training completed successfully!")
-        
-    except Exception as e:
-        logger.error(f"Training failed: {e}")
-        raise
+                gen = torch.Generator(device="cuda" if "cuda" in str(device) else "cpu").manual_seed(int(seed))
+            except Exception:
+                gen = None
+            with torch.no_grad():
+                result = pipe(prompt, generator=gen, **gen_params)
+            image = result.images[0]
+            clip_score = validator.validate_clip_similarity(prompt, image)
+            color_score = validator.validate_color_accuracy(image)
+            combined = 0.7 * clip_score + 0.3 * color_score
+            logger.debug(f"seed={seed} clip={clip_score:.3f} color={color_score:.3f} combined={combined:.3f}")
+            if combined > best_score:
+                best_score = combined
+                best_image = image
+        except Exception as e:
+            logger.warning(f"generation error (seed {seed}): {e}")
+
+    if best_image is not None:
+        os.makedirs(out_dir, exist_ok=True)
+        safe_prompt = "".join(c if c.isalnum() or c in "-_." else "_" for c in prompt)[:120]
+        filename = f"epoch_{epoch}_batch_{batch_idx}_{safe_prompt}_score_{best_score:.3f}.png"
+        path = os.path.join(out_dir, filename)
+        try:
+            best_image.save(path)
+            logger.info(f"Saved best image: {path} (score={best_score:.3f})")
+        except Exception as e:
+            logger.warning(f"Failed to save image {path}: {e}")
+    else:
+        logger.warning(f"No image generated for prompt: {prompt}")
+
+    return best_score, best_image
+
+
+class GiramilleTrainer:
+    """
+    Lightweight trainer wrapper that currently uses generation + validation
+    to select best samples. This is NOT weight fine-tuning; use LoRA/PEFT or DreamBooth
+    for actual training of model weights.
+    """
+
+    def __init__(self, pipe: StableDiffusionPipeline, device: Optional[torch.device | str] = None):
+        self.pipe = pipe
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        # ensure pipeline device
+        try:
+            self.pipe = self.pipe.to(self.device)
+        except Exception:
+            logger.debug("Could not move pipeline to device; continuing with default.")
+
+    def train(self, prompts: List[str], epochs: int = 4, batch_size: int = 1):
+        ds = GiramilleStyleDataset(prompts)
+        dl = DataLoader(ds, batch_size=batch_size, shuffle=False)
+        for epoch in range(1, epochs + 1):
+            logger.info(f"Epoch {epoch}/{epochs} start - {datetime.utcnow().isoformat()}Z")
+            batch_idx = 0
+            for batch in dl:
+                # batch may be list of prompts
+                for prompt in (batch if isinstance(batch, (list, tuple)) else [batch]):
+                    score = self._train_single_prompt(prompt, epoch, batch_idx)
+                    logger.info(f"Epoch {epoch} batch {batch_idx} prompt score: {score:.3f}")
+                    batch_idx += 1
+
+    def _train_single_prompt(self, prompt: str, epoch: int, batch_idx: int) -> float:
+        out_dir = os.path.join("outputs", "training", f"epoch_{epoch}")
+        score, _ = generate_best_image(self.pipe, prompt, out_dir, epoch, batch_idx, device=self.device)
+        return float(score or 0.0)
+
 
 if __name__ == "__main__":
-    run_advanced_training()
+    # minimal runnable example: only run if a local pipeline is available.
+    try:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # attempt to load a small pipeline if user configured; replace the model id as needed
+        model_id = os.environ.get("SD_MODEL_ID", "runwayml/stable-diffusion-v1-5")
+        logger.info(f"Loading pipeline {model_id} on {device} (this may download weights)...")
+        pipe = StableDiffusionPipeline.from_pretrained(model_id)
+        # set scheduler to DPMSolverMultistep for slightly better sampling (optional)
+        try:
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+        except Exception:
+            logger.debug("Could not switch scheduler; using pipeline default.")
+        trainer = GiramilleTrainer(pipe, device=device)
+        sample_prompts = [
+            "A colorful sunset over the ocean in Giramille style, vivid saturation",
+            "Portrait in Giramille style, simplified shapes and high contrast colors",
+        ]
+        trainer.train(sample_prompts, epochs=1, batch_size=1)
+    except Exception as e:
+        logger.error(f"Runner failed: {e}")

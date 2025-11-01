@@ -1,0 +1,6 @@
+{
+  "model_path": "outputs/trained_models\\giramille_style_model",
+  "training_date": "2025-11-01T09:27:15.773572",
+  "device": "cuda",
+  "base_model": "runwayml/stable-diffusion-v1-5"
+}

@@ -21,16 +21,16 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 import base64
 from io import BytesIO
+import io
 import warnings
+# silence only the specific FutureWarning from transformers about _register_pytree_node
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*_register_pytree_node.*", module="transformers.*")
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Global production instance
 production_generator = None
-
-# silence the specific FutureWarning from transformers about _register_pytree_node
-warnings.filterwarnings("ignore", category=FutureWarning, message=".*_register_pytree_node.*", module="transformers.*")
 
 def initialize_production_system(device_type="cpu"):
     """Initialize global production system"""
@@ -165,6 +165,14 @@ class PerformanceMonitor:
             'timestamp': datetime.now().isoformat()
         }
 
+def _is_cuda_device(dev):
+    import torch as _torch
+    if isinstance(dev, str):
+        return "cuda" in dev
+    if isinstance(dev, _torch.device):
+        return dev.type == "cuda"
+    return False
+
 class ProductionGiramilleGenerator:
     """Production-ready Giramille style generator"""
     def __init__(self, config: ProductionConfig):
@@ -194,7 +202,19 @@ class ProductionGiramilleGenerator:
             pipe = pipe.to(self.device)
             pipe.enable_attention_slicing(slice_size="auto")
             if self.device == "cuda" and hasattr(pipe, 'enable_xformers_memory_efficient_attention'):
-                pipe.enable_xformers_memory_efficient_attention()
+                # try to enable xformers memory efficient attention, but continue if unavailable
+                try:
+                    import importlib
+                    if importlib.util.find_spec("xformers") is not None:
+                        try:
+                            pipe.enable_xformers_memory_efficient_attention()
+                            logger.info("Enabled xformers memory-efficient attention")
+                        except Exception as e:
+                            logger.warning(f"xformers found but enable failed, continuing without it: {e}")
+                    else:
+                        logger.info("xformers not installed; running without memory-efficient attention")
+                except Exception as e:
+                    logger.warning(f"Skipping xformers enablement due to error: {e}")
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
             logger.info("Model loaded successfully")
             return pipe
@@ -205,64 +225,80 @@ class ProductionGiramilleGenerator:
         os.makedirs(self.config.model_cache_dir, exist_ok=True)
         os.makedirs(self.config.output_dir, exist_ok=True)
         os.makedirs('logs', exist_ok=True)
-    def generate_image(self, prompt: str, style: str = "png", quality: str = "balanced") -> Dict:
-        start_time = time.time()
-        cache_hit = False
+    def _create_generator(self, seed: int):
+        # create a torch Generator with a device that exists and is supported
         try:
-            cache_key = self.cache.generate_key(prompt, style, quality)
-            cached_image = self.cache.get(cache_key)
-            if cached_image:
-                logger.info(f"Cache hit for prompt: {prompt[:50]}...")
-                cache_hit = True
-                generation_time = time.time() - start_time
-                return {
-                    'success': True,
-                    'image': cached_image,
-                    'cached': True,
-                    'generation_time': generation_time,
-                    'prompt': prompt,
-                    'style': style,
-                    'quality': quality
-                }
-            quality_settings = self.config.quality_settings.get(quality, self.config.quality_settings['balanced'])
-            full_prompt = f"{prompt}, {self.config.style_prompt}"
-            with torch.no_grad():
-                result = self.pipe(
-                    full_prompt,
-                    negative_prompt=self.config.negative_prompt,
-                    num_inference_steps=quality_settings['steps'],
-                    guidance_scale=quality_settings['guidance'],
-                    height=self.config.default_image_size[0],
-                    width=self.config.default_image_size[1],
-                    generator=torch.Generator().manual_seed(42)
-                )
-            image = result.images[0]
-            buffer = BytesIO()
-            image.save(buffer, format=style.upper())
-            image_bytes = buffer.getvalue()
-            self.cache.set(cache_key, image_bytes, self.config.cache_ttl)
-            generation_time = time.time() - start_time
-            logger.info(f"[SUCCESS] Generated image in {generation_time:.2f}s")
+            if _is_cuda_device(self.device):
+                return torch.Generator(device="cuda").manual_seed(int(seed))
+            else:
+                return torch.Generator(device="cpu").manual_seed(int(seed))
+        except Exception:
+            # fallback to CPU generator or None if generator API not supported
+            try:
+                return torch.Generator().manual_seed(int(seed))
+            except Exception:
+                return None
+
+    def generate_image(self, prompt: str, *, negative_prompt: Optional[str] = None, seed: Optional[int] = None, style: Optional[str] = None, quality: Optional[str] = None):
+        """Generate an image and return a dict; robust to None inputs."""
+        try:
+            if prompt is None:
+                raise ValueError("prompt must be provided")
+
+            seed = int(seed) if seed is not None else 42
+            gen = self._create_generator(seed)
+
+            # normalize optional strings
+            neg = negative_prompt or ""
+            st = (style or "").lower()
+            q = (quality or "").lower()
+
+            # sampling params (can be adapted from quality)
+            steps = 50 if q != "high" else 100
+            guidance = 8.5 if q != "high" else 9.5
+
+            # call pipeline; pass generator only if not None
+            kwargs = dict(num_inference_steps=steps, guidance_scale=guidance)
+            if gen is not None:
+                kwargs["generator"] = gen
+            if neg:
+                kwargs["negative_prompt"] = neg
+
+            out = self.pipe(prompt, **kwargs)
+            img = out.images[0] if hasattr(out, "images") else out
+
+            # convert PIL image to bytes for consistent return type
+            img_bytes = None
+            if isinstance(img, Image.Image):
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                img_bytes = buf.getvalue()
+            elif isinstance(img, (bytes, bytearray)):
+                img_bytes = bytes(img)
+            else:
+                # try to convert numeric arrays
+                try:
+                    pil = Image.fromarray(img)
+                    buf = BytesIO()
+                    pil.save(buf, format="PNG")
+                    img_bytes = buf.getvalue()
+                except Exception:
+                    img_bytes = None
+
+            if img_bytes is None:
+                raise RuntimeError("failed to obtain image bytes from pipeline output")
+
             return {
-                'success': True,
-                'image': image_bytes,
-                'cached': False,
-                'generation_time': generation_time,
-                'prompt': prompt,
-                'style': style,
-                'quality': quality
+                "success": True,
+                "image": img_bytes,
+                "generation_time": None,
+                "prompt": prompt,
+                "style": style,
+                "quality": quality,
             }
         except Exception as e:
-            generation_time = time.time() - start_time
-            logger.error(f"[ERROR] Error generating image: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'generation_time': generation_time,
-                'prompt': prompt,
-                'style': style,
-                'quality': quality
-            }
+            logger.error(f"Error generating image: {e}")
+            return {"success": False, "error": str(e), "prompt": prompt, "style": style, "quality": quality}
     def get_health_status(self) -> Dict:
         metrics = self.monitor.get_metrics()
         system_info = self.monitor.get_system_info()
