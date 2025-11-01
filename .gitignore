@@ -302,3 +302,7 @@ frontend/node_modules/
 # Next.js build output
 frontend/.next/
 >>>>>>> 2662d5a782ed0e68c1ae51db70ce9187a2101ea8
+backend/outputs/
+backend/.venv/
+backend/node_modules/
+frontend/venv_1/
