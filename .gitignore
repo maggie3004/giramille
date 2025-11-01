@@ -293,5 +293,12 @@ frontend/venv_310/
 !*.yaml
 !*.json
 
+<<<<<<< HEAD
 frontend/node_modules/
 /node_modules/
+=======
+# Node.js dependencies
+frontend/node_modules/
+# Next.js build output
+frontend/.next/
+>>>>>>> 2662d5a782ed0e68c1ae51db70ce9187a2101ea8

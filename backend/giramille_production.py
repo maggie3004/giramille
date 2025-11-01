@@ -21,12 +21,16 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 import base64
 from io import BytesIO
+import warnings
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Global production instance
 production_generator = None
+
+# silence the specific FutureWarning from transformers about _register_pytree_node
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*_register_pytree_node.*", module="transformers.*")
 
 def initialize_production_system(device_type="cpu"):
     """Initialize global production system"""
