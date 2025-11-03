@@ -1,4 +1,4 @@
-// File: D:\AI image generation project data\giramille\frontend\app\layout.tsx
+// File: D:\maitri\ai-image\giramille\frontend\app\layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

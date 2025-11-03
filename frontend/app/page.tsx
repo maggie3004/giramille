@@ -1497,3 +1497,17 @@ export default function HomePage() {
 		 </main>
 	 );
 }
+
+async function generateImage(prompt: string) {
+    const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, width: 512, height: 512 }),
+    });
+    const j = await res.json();
+    if (j.success && typeof j.image === "string") {
+        // j.image should be "data:image/png;base64,...."
+        return j.image;
+    }
+    throw new Error(j.error || "generation failed");
+}
