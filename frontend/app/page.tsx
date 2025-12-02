@@ -272,11 +272,10 @@ export default function HomePage() {
   }
 
   const generateImageFromPrompt = async (promptText: string, type: 'png' | 'vector'): Promise<string> => {
-    console.log('Production AI Image Generation - Prompt:', promptText, 'Type:', type);
     setIsGenerating(true);
-
     try {
-      const response = await fetch('/api/generate', {
+      const url = `${BACKEND}/api/generate`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -287,40 +286,15 @@ export default function HomePage() {
           height: 512
         }),
       });
-
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      const data = await response.json();
-
-      if (!data.success || !data.image) throw new Error(data.error || 'No image returned');
-
-      let img = data.image as string;
-      // normalize to absolute URL when backend returns a /storage path or relative
-      if (img.startsWith('/storage')) {
-        img = `${BACKEND}${img}`;
-      } else if (!img.startsWith('http') && !img.startsWith('data:')) {
-        img = `${BACKEND}/${img}`.replace(/([^:])\/\/+/g, '$1/');
-      }
-
-      // If the backend returned an inline data URL (data:...), it's immediately available
-      if (img.startsWith('data:')) {
-        await refreshHistoryImgs(setHistoryImgs);
-        return img;
-      }
-
-      // Wait until the storage file is actually available (HEAD check). Avoid returning a demo placeholder.
-      const available = await waitForUrl(img, 60_000, 1000);
-      if (!available) {
-        // image not yet available after timeout — surface an error so caller can keep spinner / show message
-        throw new Error('Image not available yet on storage. Try again shortly.');
-      }
-
-      // refresh history and return final URL
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      let img = data.image;
+      if (typeof img === 'string' && img.startsWith('/storage')) img = `${BACKEND}${img}`;
       await refreshHistoryImgs(setHistoryImgs);
       return img;
-    } catch (error: any) {
-      console.error('❌ Backend API error (generateImageFromPrompt):', error);
-      // do NOT silently return a demo canvas when backend is still producing — rethrow so caller can handle UI appropriately
-      throw error;
+    } catch (err: any) {
+      console.error('generateImageFromPrompt error:', err);
+      throw err;
     } finally {
       setIsGenerating(false);
     }
