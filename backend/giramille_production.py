@@ -4,6 +4,7 @@ Production-Ready Giramille Style System
 Optimized for production deployment with caching, monitoring, and error handling
 """
 
+import warnings
 import torch
 from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
 from PIL import Image, ImageDraw
@@ -11,314 +12,132 @@ import numpy as np
 import os
 import time
 import logging
-from typing import Dict, List, Optional
-from datetime import datetime
-import hashlib
-import redis
-import psutil
-import threading
-from queue import Queue
-from concurrent.futures import ThreadPoolExecutor
-import base64
+from typing import Optional, Any, Dict
 from io import BytesIO
-import io
-import warnings
-# silence only the specific FutureWarning from transformers about _register_pytree_node
-warnings.filterwarnings("ignore", category=FutureWarning, message=".*_register_pytree_node.*", module="transformers.*")
 
-# Configure logging
-logger = logging.getLogger(__name__)
+import torch
+from PIL import Image, ImageFilter, ImageEnhance
 
-# Global production instance
-production_generator = None
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
 
-def initialize_production_system(device_type="cpu"):
-    """Initialize global production system"""
-    global production_generator
-    if production_generator is None:
+logger = logging.getLogger("giramille.production")
+
+# Defaults - change MODEL_ID to your local model path if you use local weights
+MODEL_ID = os.environ.get("GIRAMILLE_MODEL_DIR", "runwayml/stable-diffusion-v1-5")
+# optional upscaler: install realesrgan package & model if you want neural upscaling
+TRY_REAL_ESRGAN = True
+
+class ProductionGenerator:
+    def __init__(self, pipe: StableDiffusionPipeline, device: torch.device, use_fp16: bool = False):
+        self.pipe = pipe
+        self.device = device
+        self.use_fp16 = use_fp16
+
+        # prefer a stable scheduler for high quality
         try:
-            config = ProductionConfig(device_type)
-            logger.info(f"[STARTUP] Creating production system with {device_type} configuration")
-            production_generator = ProductionGiramilleGenerator(config)
-            os.makedirs('logs', exist_ok=True)
-            logger.info("[STARTUP] Production system initialized successfully")
-        except Exception as e:
-            logger.error(f"[ERROR] Failed to initialize production system: {e}")
-            raise
-    return production_generator
-
-class ProductionConfig:
-    """Production configuration"""
-    def __init__(self, device_type="cpu"):
-        self.device_type = device_type
-        self.max_concurrent_requests = 10
-        self.cache_ttl = 3600  # 1 hour
-        if device_type == "cpu":
-            self.max_image_size = (768, 768)
-            self.default_image_size = (512, 512)
-            self.quality_settings = {
-                'fast': {'steps': 20, 'guidance': 7.0},
-                'balanced': {'steps': 30, 'guidance': 7.5},
-                'high': {'steps': 40, 'guidance': 8.0}
-            }
-        else:
-            self.max_image_size = (1024, 1024)
-            self.default_image_size = (768, 768)
-            self.quality_settings = {
-                'fast': {'steps': 30, 'guidance': 7.5},
-                'balanced': {'steps': 50, 'guidance': 8.5},
-                'high': {'steps': 75, 'guidance': 9.5}
-            }
-        self.style_prompt = (
-            "professional concept art, architectural illustration, detailed textures, "
-            "warm lighting, decorative elements, elegant design, artistic composition, "
-            "Giramille signature style, vibrant colors, ornate details"
-        )
-        self.negative_prompt = (
-            "low quality, blurry, distorted, bad anatomy, watermark, simple, basic, "
-            "flat colors, missing details, poor lighting, amateur"
-        )
-        self.model_id = (
-            "runwayml/stable-diffusion-v1-5" if device_type == "cpu"
-            else "stabilityai/stable-diffusion-xl-base-1.0"
-        )
-        self.redis_url = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
-        self.model_cache_dir = 'models/cache'
-        self.output_dir = 'outputs/production'
-
-class ImageCache:
-    """Redis-based image cache for production"""
-    def __init__(self, redis_url: str):
-        self.redis_client = None
-        self.memory_cache = {}
-        try:
-            for i in range(3):
-                try:
-                    self.redis_client = redis.from_url(redis_url, socket_timeout=2.0)
-                    self.redis_client.ping()
-                    logger.info("[SUCCESS] Redis cache connected")
-                    break
-                except redis.ConnectionError as e:
-                    if i == 2:
-                        raise
-                    logger.warning(f"Redis connection attempt {i+1} failed, retrying...")
-                    time.sleep(1)
-        except Exception as e:
-            logger.warning(f"Redis not available, using memory cache: {e}")
-            self.redis_client = None
-    def get(self, key: str) -> Optional[bytes]:
-        try:
-            if self.redis_client:
-                return self.redis_client.get(key)
-            else:
-                return self.memory_cache.get(key)
-        except Exception as e:
-            logger.error(f"Cache get error: {e}")
-            return None
-    def set(self, key: str, value: bytes, ttl: int = 3600):
-        try:
-            if self.redis_client:
-                self.redis_client.setex(key, ttl, value)
-            else:
-                self.memory_cache[key] = value
-        except Exception as e:
-            logger.error(f"Cache set error: {e}")
-    def generate_key(self, prompt: str, style: str, quality: str) -> str:
-        content = f"{prompt}_{style}_{quality}"
-        return hashlib.md5(content.encode()).hexdigest()
-
-class PerformanceMonitor:
-    """Monitor system performance"""
-    def __init__(self):
-        self.metrics = {
-            'requests_total': 0,
-            'requests_success': 0,
-            'requests_failed': 0,
-            'avg_generation_time': 0,
-            'cache_hits': 0,
-            'cache_misses': 0
-        }
-        self.lock = threading.Lock()
-    def record_request(self, success: bool, generation_time: float, cache_hit: bool):
-        with self.lock:
-            self.metrics['requests_total'] += 1
-            if success:
-                self.metrics['requests_success'] += 1
-            else:
-                self.metrics['requests_failed'] += 1
-            if cache_hit:
-                self.metrics['cache_hits'] += 1
-            else:
-                self.metrics['cache_misses'] += 1
-            total_success = self.metrics['requests_success']
-            if total_success > 0:
-                current_avg = self.metrics['avg_generation_time']
-                self.metrics['avg_generation_time'] = (current_avg * (total_success - 1) + generation_time) / total_success
-    def get_metrics(self) -> Dict:
-        with self.lock:
-            return self.metrics.copy()
-    def get_system_info(self) -> Dict:
-        return {
-            'cpu_percent': psutil.cpu_percent(),
-            'memory_percent': psutil.virtual_memory().percent,
-            'disk_percent': psutil.disk_usage('/').percent,
-            'timestamp': datetime.now().isoformat()
-        }
-
-def _is_cuda_device(dev):
-    import torch as _torch
-    if isinstance(dev, str):
-        return "cuda" in dev
-    if isinstance(dev, _torch.device):
-        return dev.type == "cuda"
-    return False
-
-class ProductionGiramilleGenerator:
-    """Production-ready Giramille style generator"""
-    def __init__(self, config: ProductionConfig):
-        self.config = config
-        self.device = config.device_type
-        self.cache = ImageCache(config.redis_url)
-        self.monitor = PerformanceMonitor()
-        self.request_queue = Queue(maxsize=config.max_concurrent_requests)
-        self.executor = ThreadPoolExecutor(max_workers=config.max_concurrent_requests)
-        self.pipe = self._initialize_pipeline()
-        self._setup_directories()
-    def _initialize_pipeline(self):
-        try:
-            logger.info(f"Loading model {self.config.model_id} on {self.device}")
-            trained_model_path = os.path.join(self.config.model_cache_dir, "giramille_style_model")
-            if os.path.exists(trained_model_path):
-                logger.info("Loading trained Giramille model...")
-                model_id = trained_model_path
-            else:
-                logger.info("Loading base model...")
-                model_id = self.config.model_id
-            pipe = StableDiffusionPipeline.from_pretrained(
-                model_id,
-                torch_dtype=torch.float32,
-                safety_checker=None
-            )
-            pipe = pipe.to(self.device)
-            pipe.enable_attention_slicing(slice_size="auto")
-            if self.device == "cuda" and hasattr(pipe, 'enable_xformers_memory_efficient_attention'):
-                # try to enable xformers memory efficient attention, but continue if unavailable
-                try:
-                    import importlib
-                    if importlib.util.find_spec("xformers") is not None:
-                        try:
-                            pipe.enable_xformers_memory_efficient_attention()
-                            logger.info("Enabled xformers memory-efficient attention")
-                        except Exception as e:
-                            logger.warning(f"xformers found but enable failed, continuing without it: {e}")
-                    else:
-                        logger.info("xformers not installed; running without memory-efficient attention")
-                except Exception as e:
-                    logger.warning(f"Skipping xformers enablement due to error: {e}")
-            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-            logger.info("Model loaded successfully")
-            return pipe
-        except Exception as e:
-            logger.error(f"Failed to initialize model pipeline: {e}")
-            raise
-    def _setup_directories(self):
-        os.makedirs(self.config.model_cache_dir, exist_ok=True)
-        os.makedirs(self.config.output_dir, exist_ok=True)
-        os.makedirs('logs', exist_ok=True)
-    def _create_generator(self, seed: int):
-        # create a torch Generator with a device that exists and is supported
-        try:
-            if _is_cuda_device(self.device):
-                return torch.Generator(device="cuda").manual_seed(int(seed))
-            else:
-                return torch.Generator(device="cpu").manual_seed(int(seed))
+            self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
         except Exception:
-            # fallback to CPU generator or None if generator API not supported
-            try:
-                return torch.Generator().manual_seed(int(seed))
-            except Exception:
-                return None
+            pass
 
-    def generate_image(self, prompt: str, *, negative_prompt: Optional[str] = None, seed: Optional[int] = None, style: Optional[str] = None, quality: Optional[str] = None):
-        """Generate an image and return a dict; robust to None inputs."""
-        try:
-            if prompt is None:
-                raise ValueError("prompt must be provided")
+        # warm-up small call
+        logger.info("ProductionGenerator initialized on %s (fp16=%s)", device, use_fp16)
 
-            seed = int(seed) if seed is not None else 42
-            gen = self._create_generator(seed)
+    def _postprocess_image(self, img: Image.Image, quality: str):
+        if quality == "high":
+            # upscale 2x with Lanczos + sharpen/contrast
+            w, h = img.size
+            img = img.resize((w * 2, h * 2), resample=Image.LANCZOS)
+            img = img.filter(ImageFilter.UnsharpMask(radius=1, percent=150, threshold=3))
+            img = ImageEnhance.Contrast(img).enhance(1.05)
+            img = ImageEnhance.Color(img).enhance(1.05)
 
-            # normalize optional strings
-            neg = negative_prompt or ""
-            st = (style or "").lower()
-            q = (quality or "").lower()
-
-            # sampling params (can be adapted from quality)
-            steps = 50 if q != "high" else 100
-            guidance = 8.5 if q != "high" else 9.5
-
-            # call pipeline; pass generator only if not None
-            kwargs = dict(num_inference_steps=steps, guidance_scale=guidance)
-            if gen is not None:
-                kwargs["generator"] = gen
-            if neg:
-                kwargs["negative_prompt"] = neg
-
-            out = self.pipe(prompt, **kwargs)
-            img = out.images[0] if hasattr(out, "images") else out
-
-            # convert PIL image to bytes for consistent return type
-            img_bytes = None
-            if isinstance(img, Image.Image):
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-                img_bytes = buf.getvalue()
-            elif isinstance(img, (bytes, bytearray)):
-                img_bytes = bytes(img)
-            else:
-                # try to convert numeric arrays
+            # optional: call Real-ESRGAN if installed (best results with GPU)
+            if TRY_REAL_ESRGAN:
                 try:
-                    pil = Image.fromarray(img)
-                    buf = BytesIO()
-                    pil.save(buf, format="PNG")
-                    img_bytes = buf.getvalue()
-                except Exception:
-                    img_bytes = None
+                    from realesrgan import RealESRGAN
+                    device = "cuda" if self.device.type == "cuda" else "cpu"
+                    with RealESRGAN(device, scale=2) as rr:
+                        rr.load_weights("RealESRGAN_x2plus")  # ensure model weights installed
+                        arr = rr.predict(img)
+                        img = Image.fromarray(arr)
+                except Exception as e:
+                    logger.debug("Real-ESRGAN unavailable or failed: %s", e)
+        return img
 
-            if img_bytes is None:
-                raise RuntimeError("failed to obtain image bytes from pipeline output")
-
-            return {
-                "success": True,
-                "image": img_bytes,
-                "generation_time": None,
-                "prompt": prompt,
-                "style": style,
-                "quality": quality,
-            }
-        except Exception as e:
-            logger.error(f"Error generating image: {e}")
-            return {"success": False, "error": str(e), "prompt": prompt, "style": style, "quality": quality}
-    def get_health_status(self) -> Dict:
-        metrics = self.monitor.get_metrics()
-        system_info = self.monitor.get_system_info()
-        return {
-            'status': 'healthy' if system_info['cpu_percent'] < 90 and system_info['memory_percent'] < 90 else 'warning',
-            'metrics': metrics,
-            'system': system_info,
-            'model_loaded': self.pipe is not None,
-            'cache_available': self.cache.redis_client is not None,
-            'timestamp': datetime.now().isoformat()
-        }
-    def get_metrics(self) -> Dict:
-        return self.monitor.get_metrics()
-    def clear_cache(self):
+    def generate_image(self, prompt: str, *, negative_prompt: Optional[str] = None,
+                       seed: Optional[int] = None, style: Optional[str] = None,
+                       quality: Optional[str] = "high", width: int = 512, height: int = 512) -> Dict[str, Any]:
         try:
-            if self.cache.redis_client:
-                self.cache.redis_client.flushdb()
-                logger.info("[SUCCESS] Cache cleared")
+            seed = int(seed) if seed is not None else int(time.time()) & 0xFFFFFFFF
+            generator = torch.Generator(self.device).manual_seed(seed) if self.device.type == "cuda" or self.device.type == "cpu" else None
+
+            q = (quality or "balanced").lower()
+            if q == "high":
+                steps = 60
+                guidance = 12.0
+            elif q == "balanced":
+                steps = 40
+                guidance = 9.0
             else:
-                self.cache.memory_cache.clear()
-                logger.info("[SUCCESS] Memory cache cleared")
+                steps = 25
+                guidance = 7.5
+
+            logger.info("generate_image: seed=%s steps=%s guidance=%s quality=%s", seed, steps, guidance, q)
+            pipe_call = self.pipe.to(self.device)
+
+            call_kwargs = dict(prompt=prompt,
+                               negative_prompt=negative_prompt,
+                               height=height,
+                               width=width,
+                               num_inference_steps=int(steps),
+                               guidance_scale=float(guidance),
+                               generator=generator)
+
+            # run with fp16/autocast on CUDA for speed/quality
+            if self.use_fp16 and self.device.type == "cuda":
+                with torch.autocast("cuda"):
+                    out = pipe_call(**call_kwargs)
+            else:
+                out = pipe_call(**call_kwargs)
+
+            image = out.images[0] if hasattr(out, "images") else out
+            if not isinstance(image, Image.Image):
+                image = Image.fromarray(image)
+
+            # postprocess/upscale for high quality
+            image = self._postprocess_image(image, q)
+
+            buf = BytesIO()
+            image.save(buf, format="PNG", optimize=True)
+            img_bytes = buf.getvalue()
+
+            return {"success": True, "image": img_bytes, "final_prompt": prompt, "seed": seed, "quality": q}
         except Exception as e:
-            logger.error(f"Error clearing cache: {e}")
+            logger.exception("generate_image failed")
+            return {"success": False, "error": str(e)}
+
+def initialize_production_system(device: Optional[str] = None) -> ProductionGenerator:
+    """
+    Load pipeline and return a ProductionGenerator.
+    device: "cuda"|"cpu"|None
+    """
+    # detect device
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device(device)
+
+    use_fp16 = True if device.type == "cuda" else False
+
+    logger.info("Loading model '%s' on %s (fp16=%s)", MODEL_ID, device, use_fp16)
+    # load pipeline: prefer local dir if MODEL_ID points to local weights
+    pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=(torch.float16 if use_fp16 else torch.float32))
+    # move to device
+    pipe = pipe.to(device)
+
+    # reduce safety checker behavior only if you explicitly want it disabled
+    # pipe.safety_checker = None  # consider enabling in production with moderation
+
+    gen = ProductionGenerator(pipe, device, use_fp16)
+    return gen
+
+__all__ = ['initialize_production_system', 'ProductionGenerator']
