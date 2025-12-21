@@ -306,3 +306,90 @@ backend/outputs/
 backend/.venv/
 backend/node_modules/
 frontend/venv_1/
+
+############################
+# Python
+############################
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+############################
+# Virtual Environments
+############################
+.venv/
+venv/
+env/
+
+############################
+# Machine Learning Models & Weights
+# (NEVER commit these)
+############################
+backend/models/
+*.ckpt
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
+############################
+# HuggingFace cache (if used)
+############################
+.cache/
+huggingface/
+hf_cache/
+
+############################
+# Generated Images / Runtime Storage
+############################
+backend/storage/*.png
+backend/storage/*.jpg
+backend/storage/*.jpeg
+backend/storage/*.webp
+backend/storage/history.json
+
+############################
+# Next.js / Frontend
+############################
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+############################
+# Node / NPM
+############################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+############################
+# Build / Dist
+############################
+build/
+dist/
+
+############################
+# Environment Variables
+############################
+.env
+.env.local
+.env.development
+.env.production
+
+############################
+# IDE / Editor
+############################
+.vscode/
+.idea/
+*.swp
+*.swo
+
+############################
+# OS Files
+############################
+.DS_Store
+Thumbs.db
