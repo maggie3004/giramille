@@ -39,6 +39,26 @@ class ProductionGenerator:
         except Exception:
             pass
 
+        # enable memory-efficient attention / xformers if available
+        try:
+            if hasattr(self.pipe, "enable_xformers_memory_efficient_attention"):
+                self.pipe.enable_xformers_memory_efficient_attention()
+        except Exception:
+            logger.debug("xformers not enabled or unavailable")
+
+        # enable attention slicing to reduce peak memory (helps on modest GPUs)
+        try:
+            if hasattr(self.pipe, "enable_attention_slicing"):
+                self.pipe.enable_attention_slicing()
+        except Exception:
+            pass
+
+        # ensure pipeline is on target device (should be moved in initializer)
+        try:
+            self.pipe = self.pipe.to(self.device)
+        except Exception:
+            logger.debug("Failed to move pipeline to device during init")
+
         # warm-up small call
         logger.info("ProductionGenerator initialized on %s (fp16=%s)", device, use_fp16)
 
@@ -55,11 +75,19 @@ class ProductionGenerator:
             if TRY_REAL_ESRGAN:
                 try:
                     from realesrgan import RealESRGAN
-                    device = "cuda" if self.device.type == "cuda" else "cpu"
-                    with RealESRGAN(device, scale=2) as rr:
+                    if self.device.type == "cuda":
+                        rr = RealESRGAN("cuda", scale=2)
+                    else:
+                        rr = RealESRGAN("cpu", scale=2)
+                    try:
                         rr.load_weights("RealESRGAN_x2plus")  # ensure model weights installed
                         arr = rr.predict(img)
                         img = Image.fromarray(arr)
+                    finally:
+                        try:
+                            rr.close()
+                        except Exception:
+                            pass
                 except Exception as e:
                     logger.debug("Real-ESRGAN unavailable or failed: %s", e)
         return img
@@ -69,12 +97,21 @@ class ProductionGenerator:
                        quality: Optional[str] = "high", width: int = 512, height: int = 512) -> Dict[str, Any]:
         try:
             seed = int(seed) if seed is not None else int(time.time()) & 0xFFFFFFFF
-            generator = torch.Generator(self.device).manual_seed(seed) if self.device.type == "cuda" or self.device.type == "cpu" else None
+            # prepare generator for deterministic outputs when supported
+            try:
+                generator = torch.Generator(device=self.device).manual_seed(seed)
+            except Exception:
+                # fallback for older torch APIs
+                generator = torch.Generator().manual_seed(seed)
 
             q = (quality or "balanced").lower()
             if q == "high":
                 steps = 60
-                guidance = 12.0
+                guidance = 10.0
+                # prefer larger base resolution when GPU available
+                if self.device.type == "cuda" and width < 768:
+                    width = 768
+                    height = 768
             elif q == "balanced":
                 steps = 40
                 guidance = 9.0
@@ -82,8 +119,7 @@ class ProductionGenerator:
                 steps = 25
                 guidance = 7.5
 
-            logger.info("generate_image: seed=%s steps=%s guidance=%s quality=%s", seed, steps, guidance, q)
-            pipe_call = self.pipe.to(self.device)
+            logger.info("generate_image: seed=%s steps=%s guidance=%s quality=%s device=%s", seed, steps, guidance, q, self.device)
 
             call_kwargs = dict(prompt=prompt,
                                negative_prompt=negative_prompt,
@@ -93,9 +129,12 @@ class ProductionGenerator:
                                guidance_scale=float(guidance),
                                generator=generator)
 
+            # use the initialized pipeline on the correct device
+            pipe_call = self.pipe
+
             # run with fp16/autocast on CUDA for speed/quality
             if self.use_fp16 and self.device.type == "cuda":
-                with torch.autocast("cuda"):
+                with torch.autocast(self.device.type):
                     out = pipe_call(**call_kwargs)
             else:
                 out = pipe_call(**call_kwargs)
@@ -130,6 +169,38 @@ def initialize_production_system(device: Optional[str] = None) -> ProductionGene
 
     logger.info("Loading model '%s' on %s (fp16=%s)", MODEL_ID, device, use_fp16)
     # load pipeline: prefer local dir if MODEL_ID points to local weights
+    # Before loading, perform a quick check for common safetensors/bin files when MODEL_ID is a local path
+    def _check_model_files(model_id: str) -> Dict[str, bool]:
+        # returns mapping component -> exists(bool)
+        components = {
+            "unet": ["unet/diffusion_pytorch_model.safetensors", "unet/diffusion_pytorch_model.bin"],
+            "text_encoder": ["text_encoder/model.safetensors", "text_encoder/pytorch_model.bin"],
+            "vae": ["vae/vae.safetensors", "vae/diffusion_pytorch_model.safetensors", "vae/pytorch_model.bin"]
+        }
+        results = {}
+        # Only check when model_id appears to be a local path
+        if os.path.exists(model_id):
+            for comp, candidates in components.items():
+                found = False
+                for c in candidates:
+                    if os.path.exists(os.path.join(model_id, c)):
+                        found = True
+                        break
+                results[comp] = found
+        else:
+            # remote repo; don't assume local files
+            for comp in components.keys():
+                results[comp] = False
+        return results
+
+    try:
+        file_check = _check_model_files(MODEL_ID)
+        missing = [k for k, v in file_check.items() if not v]
+        if missing and os.path.exists(MODEL_ID):
+            logger.warning("Model directory '%s' is missing component files for: %s. Diffusers may attempt remote download.", MODEL_ID, ",".join(missing))
+    except Exception:
+        logger.debug("Model file check failed, continuing to load pipeline")
+
     pipe = StableDiffusionPipeline.from_pretrained(MODEL_ID, torch_dtype=(torch.float16 if use_fp16 else torch.float32))
     # move to device
     pipe = pipe.to(device)

@@ -12,7 +12,7 @@ import logging
 import random
 
 # use relative import so backend.giramille_production is resolved when backend is a package
-from .giramille_production import initialize_production_system
+from .giramille_production import initialize_production_system, MODEL_ID
 
 app = FastAPI()
 
@@ -336,7 +336,54 @@ async def api_model_status():
                 }
             except Exception as e:
                 details["pipe_inspect_error"] = str(e)
-        # quick heuristic: if any komponent safetensors missing, warn (user logs earlier showed missing files)
+        # report device/dtype if available
+        try:
+            if hasattr(g, 'device'):
+                details['device'] = str(getattr(g, 'device'))
+            if hasattr(g, 'use_fp16'):
+                details['use_fp16'] = bool(getattr(g, 'use_fp16'))
+            if pipe is not None:
+                try:
+                    details['dtypes'] = {
+                        'unet': str(getattr(pipe.unet, 'dtype', None)),
+                        'vae': str(getattr(pipe.vae, 'dtype', None)),
+                        'text_encoder': str(getattr(pipe.text_encoder, 'dtype', None)),
+                    }
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # quick heuristic: if any component safetensors missing, list them
+        def _check_model_files(model_id: str):
+            comps = {
+                "unet": ["unet/diffusion_pytorch_model.safetensors", "unet/diffusion_pytorch_model.bin"],
+                "text_encoder": ["text_encoder/model.safetensors", "text_encoder/pytorch_model.bin"],
+                "vae": ["vae/vae.safetensors", "vae/diffusion_pytorch_model.safetensors", "vae/pytorch_model.bin"]
+            }
+            res = {}
+            for comp, candidates in comps.items():
+                found = False
+                for c in candidates:
+                    if os.path.exists(os.path.join(model_id, c)):
+                        found = True
+                        break
+                res[comp] = found
+            return res
+
+        try:
+            if MODEL_ID and os.path.exists(MODEL_ID):
+                file_check = _check_model_files(MODEL_ID)
+                missing = [k for k, v in file_check.items() if not v]
+                details["model_id"] = MODEL_ID
+                details["model_files_present"] = file_check
+                if missing:
+                    details["missing_components"] = missing
+            else:
+                details["model_id"] = MODEL_ID
+                details["model_files_present"] = {}
+        except Exception as e:
+            details["model_check_error"] = str(e)
+
         return {"ready": details["has_generate_image"] and details.get("pipe_present", True), "details": details}
     except Exception as e:
         return JSONResponse({"ready": False, "error": str(e)}, status_code=500)

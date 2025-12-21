@@ -1,0 +1,11 @@
+[
+  {
+    "filename": "test_1766335348852_42.png",
+    "url": "http://127.0.0.1:5000/storage/test_1766335348852_42.png",
+    "prompt": "playful children illustration, clean linework, bright colors, flat background",
+    "final_prompt": "playful children illustration, clean linework, bright colors, flat background",
+    "seed": 42,
+    "quality": "high",
+    "timestamp": 1766335348
+  }
+]
