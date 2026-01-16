@@ -536,8 +536,57 @@ def generate_image():
         }), 500
 
 def generate_giramille_image(prompt: str, style: str) -> Image.Image:
-    """Generate Giramille style image from prompt"""
-    # Create canvas
+    """Generate Giramille style image from prompt using AI"""
+    try:
+        from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+        import torch
+        
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        # Add cartoon style to prompt
+        cartoon_prompt = f"cute cartoon style illustration for kids, {prompt}, high quality, colorful, vibrant, soft edges, child-friendly, storybook style"
+        
+        # Load Stable Diffusion model
+        print(f"[INFO] Loading Stable Diffusion model on {device}...")
+        model_id = "runwayml/stable-diffusion-v1-5"
+        
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+            safety_checker=None,
+            requires_safety_checker=False
+        )
+        
+        # Use faster scheduler for quality
+        pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
+        
+        if device == "cpu":
+            pipe.enable_attention_slicing()
+        
+        print(f"[INFO] Generating cartoon image for prompt: '{prompt}'")
+        
+        # Generate with high quality settings
+        image = pipe(
+            prompt=cartoon_prompt,
+            height=512,
+            width=512,
+            num_inference_steps=50,  # Higher steps = better quality
+            guidance_scale=7.5,  # Higher = follows prompt better
+            num_images_per_prompt=1
+        ).images[0]
+        
+        print("[SUCCESS] Cartoon image generated with AI!")
+        return image
+        
+    except Exception as e:
+        print(f"[WARNING] AI generation failed ({str(e)}), using fallback...")
+        # Fallback to simple drawing if AI fails
+        return generate_giramille_fallback(prompt, style)
+
+
+def generate_giramille_fallback(prompt: str, style: str) -> Image.Image:
+    """Fallback simple drawing if AI not available"""
     width, height = 512, 512
     image = Image.new('RGBA', (width, height), (255, 255, 255, 255))
     draw = ImageDraw.Draw(image)
@@ -550,24 +599,25 @@ def generate_giramille_image(prompt: str, style: str) -> Image.Image:
     bg_color = colors[0] if colors else (135, 206, 235)  # Sky blue default
     draw.rectangle([0, 0, width, height], fill=bg_color)
     
-    # Add Giramille style elements
-    if 'house' in objects or 'home' in objects:
-        draw_giramille_house(draw, width//2, height//2, colors)
-    # stationery drawing (pen/pencil/marker)
-    if any(k in objects for k in ('pen', 'pencil', 'marker', 'brush')):
-        # draw pen centered
-        draw_giramille_pen(draw, width//2, height//2, colors)
-    if 'tree' in objects or 'forest' in objects:
-        draw_giramille_tree(draw, 100, height-100, colors)
-    if 'car' in objects or 'vehicle' in objects:
-        draw_giramille_car(draw, 400, height-150, colors)
-    if 'person' in objects or 'people' in objects:
-        draw_giramille_person(draw, 200, height-200, colors)
-    if 'animal' in objects or 'dog' in objects or 'cat' in objects:
-        draw_giramille_animal(draw, 350, height-180, colors)
-    
-    # Add Giramille style details
-    add_giramille_details(draw, width, height, colors)
+    # Add simple shapes as fallback
+    if 'horse' in objects.lower():
+        draw.ellipse([150, 150, 350, 350], fill=(165, 42, 42))  # Brown circle
+        draw.rectangle([180, 320, 200, 400], fill=(165, 42, 42))  # Legs
+    elif 'tree' in objects or 'forest' in objects:
+        draw.polygon([(256, 100), (150, 300), (362, 300)], fill=(34, 139, 34))  # Green triangle
+        draw.rectangle([240, 300, 272, 400], fill=(139, 69, 19))  # Brown trunk
+    elif 'car' in objects or 'vehicle' in objects:
+        draw.rectangle([100, 200, 400, 280], fill=(255, 0, 0))  # Red car body
+        draw.ellipse([150, 280, 210, 340], fill=(0, 0, 0))  # Wheel
+        draw.ellipse([290, 280, 350, 340], fill=(0, 0, 0))  # Wheel
+    elif 'sun' in objects:
+        draw.ellipse([200, 100, 312, 212], fill=(255, 255, 0))  # Yellow circle
+    else:
+        # Default happy face for kids
+        draw.ellipse([150, 100, 362, 312], fill=(255, 200, 0))  # Face
+        draw.ellipse([200, 150, 230, 180], fill=(0, 0, 0))  # Eyes
+        draw.ellipse([282, 150, 312, 180], fill=(0, 0, 0))
+        draw.arc([200, 200, 312, 280], 0, 180, fill=(0, 0, 0), width=3)  # Smile
     
     return image
 
