@@ -1,0 +1,17 @@
+# Optional dependencies for 3D generation features
+# Install with: pip install -r requirements-3d.txt
+
+# 3D Processing
+trimesh>=4.0.0
+scipy>=1.10.0
+scikit-image>=0.21.0
+einops>=0.7.0
+
+# Optional advanced 3D tools
+# open3d>=0.17.0  # For advanced mesh operations
+# pyvista>=0.47.0  # For 3D visualization
+
+# Note: Shap-E is not available as a standard PyPI package
+# For native 3D generation, you'll need to:
+# 1. Install from source: https://github.com/openai/shap-e
+# 2. Or use alternative: pip install stable-diffusion-3

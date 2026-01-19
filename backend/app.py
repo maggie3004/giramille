@@ -480,6 +480,312 @@ def render_scene_to_svg(scene: Dict) -> str:
         f.write(svg_content)
     return output_path
 
+# ============================================================================
+# 3D GENERATION ENDPOINTS (NEW)
+# ============================================================================
+
+@app.route('/api/generate/3d', methods=['POST'])
+def generate_3d_model():
+    """
+    Generate high-precision 3D model from text prompt
+    
+    Request JSON:
+    {
+        "prompt": "black horse with detailed features",
+        "quality": "very_high",  # very_high, high, medium
+        "include_preview": true,
+        "steps_2d": 50,
+        "steps_3d": 64
+    }
+    
+    Response:
+    {
+        "success": true,
+        "job_id": "3d_gen_...",
+        "model_path": "path/to/model.obj",
+        "preview_2d": "base64 image",
+        "validation": {...},
+        "generation_time_seconds": 180
+    }
+    """
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+    
+    try:
+        import time
+        start_time = time.time()
+        
+        # Import pipeline
+        from unified_3d_pipeline import UnifiedGenerationPipeline
+        
+        print(f"[3D] Generating 3D model from prompt: {prompt}")
+        
+        # Initialize pipeline
+        pipeline = UnifiedGenerationPipeline()
+        
+        # Extract parameters
+        quality_level = data.get('quality', 'very_high')
+        include_preview = data.get('include_preview', True)
+        steps_2d = data.get('steps_2d', 50)
+        steps_3d = data.get('steps_3d', 64)
+        
+        # Map quality to steps
+        if quality_level == 'medium':
+            steps_2d = min(steps_2d, 30)
+            steps_3d = min(steps_3d, 32)
+        elif quality_level == 'high':
+            steps_2d = max(steps_2d, 40)
+            steps_3d = max(steps_3d, 48)
+        
+        # Generate 3D with high precision
+        result = pipeline.generate_3d_with_high_precision(
+            prompt=prompt,
+            output_dir='outputs/3d_models',
+            generate_preview_2d=include_preview,
+            style='high_detail',
+            steps_2d=steps_2d,
+            steps_3d=steps_3d,
+            refine_accuracy=True,
+            validate_output=True
+        )
+        
+        elapsed = time.time() - start_time
+        
+        # Prepare response
+        if 'error' in result:
+            return jsonify({
+                'success': False,
+                'error': result['error'],
+                'generation_time_seconds': elapsed
+            }), 500
+        
+        # Get file paths
+        model_files = result.get('stages', {}).get('3d_model', {}).get('files', {})
+        preview_2d = result.get('stages', {}).get('2d_preview', {}).get('best_image', {}).get('path')
+        
+        response = {
+            'success': True,
+            'job_id': result['job_id'],
+            'prompt': prompt,
+            'model_id': result['final_output']['model_id'],
+            'model_formats': {
+                'obj': model_files.get('obj'),
+                'ply': model_files.get('ply')
+            },
+            'preview_2d_path': preview_2d,
+            'validation': result.get('stages', {}).get('validation', {}),
+            'generation_time_seconds': elapsed,
+            'device': result.get('device'),
+            'metadata_file': model_files.get('metadata')
+        }
+        
+        print(f"[3D] ✓ Model generated in {elapsed:.1f}s: {result['job_id']}")
+        return jsonify(response), 200
+        
+    except Exception as e:
+        print(f"[3D ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/generate/3d-batch', methods=['POST'])
+def generate_3d_batch():
+    """
+    Generate multiple 3D models from list of prompts
+    
+    Request JSON:
+    {
+        "prompts": [
+            "black horse",
+            "blue bird",
+            "red dragon"
+        ],
+        "quality": "high"
+    }
+    """
+    data = request.get_json()
+    prompts = data.get('prompts', [])
+    
+    if not prompts or not isinstance(prompts, list):
+        return jsonify({'error': 'Invalid prompts list'}), 400
+    
+    try:
+        from unified_3d_pipeline import UnifiedGenerationPipeline
+        
+        print(f"[3D BATCH] Starting batch generation for {len(prompts)} models")
+        
+        pipeline = UnifiedGenerationPipeline()
+        results = pipeline.generate_batch(
+            prompts=prompts,
+            output_dir='outputs/3d_batch',
+            parallel=False
+        )
+        
+        return jsonify({
+            'success': True,
+            'batch_size': len(prompts),
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        print(f"[3D BATCH ERROR] {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/generate/3d-with-variations', methods=['POST'])
+def generate_3d_variations():
+    """
+    Generate multiple variations of a single object
+    
+    Request JSON:
+    {
+        "prompt": "black horse",
+        "num_variations": 3,
+        "styles": ["high_detail", "photorealistic", "stylized"]
+    }
+    """
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    num_variations = data.get('num_variations', 3)
+    styles = data.get('styles', None)
+    
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+    
+    try:
+        from unified_3d_pipeline import UnifiedGenerationPipeline
+        
+        print(f"[3D VARIATIONS] Generating {num_variations} variations of: {prompt}")
+        
+        pipeline = UnifiedGenerationPipeline()
+        results = pipeline.generate_with_variations(
+            prompt=prompt,
+            output_dir='outputs/3d_variations',
+            num_variations=num_variations,
+            style_variations=styles
+        )
+        
+        return jsonify({
+            'success': True,
+            'prompt': prompt,
+            'num_variations': num_variations,
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        print(f"[3D VARIATIONS ERROR] {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/generate/high-precision-2d', methods=['POST'])
+def generate_high_precision_2d():
+    """
+    Generate high-precision 2D image (standalone)
+    
+    Request JSON:
+    {
+        "prompt": "black horse",
+        "style": "high_detail",  # high_detail, photorealistic, anime, cartoon, concept_art
+        "quality": "very_high",  # very_high, high, medium
+        "width": 768,
+        "height": 768,
+        "num_images": 1
+    }
+    """
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+    
+    try:
+        from high_precision_generator import HighPrecisionGenerator
+        
+        print(f"[2D HIGH-PRECISION] Generating: {prompt}")
+        
+        generator = HighPrecisionGenerator()
+        result = generator.generate_image_high_precision(
+            prompt=prompt,
+            width=data.get('width', 768),
+            height=data.get('height', 768),
+            num_inference_steps=data.get('steps', 50),
+            num_images=data.get('num_images', 1),
+            style=data.get('style', 'high_detail'),
+            quality_level=data.get('quality', 'very_high'),
+            num_passes=data.get('num_passes', 1),
+            output_dir='outputs/2d_high_precision'
+        )
+        
+        if 'error' in result:
+            return jsonify({
+                'success': False,
+                'error': result['error']
+            }), 500
+        
+        # Convert best image to base64 if available
+        best_image = result.get('best_image')
+        preview_b64 = None
+        
+        if best_image and os.path.exists(best_image['path']):
+            img = Image.open(best_image['path'])
+            preview_b64 = ImageIO.to_base64(img)
+        
+        return jsonify({
+            'success': True,
+            'batch_id': result['batch_id'],
+            'prompt': prompt,
+            'best_image': {
+                'path': best_image['path'] if best_image else None,
+                'quality_score': best_image['quality_score'] if best_image else None,
+                'preview_b64': f"data:image/png;base64,{preview_b64}" if preview_b64 else None
+            },
+            'total_generated': len(result.get('all_results', [])),
+            'quality_assessments': [r.get('quality_details') for r in result.get('all_results', [])]
+        }), 200
+        
+    except Exception as e:
+        print(f"[2D ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/model/<model_id>/download', methods=['GET'])
+def download_3d_model(model_id):
+    """
+    Download 3D model file
+    
+    Query params:
+    - format: obj, ply, glb (default: obj)
+    """
+    try:
+        format_type = request.args.get('format', 'obj')
+        
+        # Find model file
+        model_dir = 'outputs/3d_models'
+        for filename in os.listdir(model_dir):
+            if model_id in filename and filename.endswith(f'.{format_type}'):
+                file_path = os.path.join(model_dir, filename)
+                return send_file(
+                    file_path,
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype=f'application/{format_type}'
+                )
+        
+        return jsonify({'error': 'Model not found'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/generate', methods=['POST'])
 def generate_image():
     """Generate Giramille style image from prompt."""
